@@ -133,7 +133,17 @@ tr.hidden{display:none}
 .pages canvas,.pages img{max-width:100%;border:1px solid var(--line);background:#fff;cursor:zoom-in}
 .excerpt{white-space:pre-wrap;font:12px var(--mono);background:rgba(0,0,0,.25);border:1px solid var(--line);border-radius:8px;padding:8px;max-height:260px;overflow:auto}
 mark{background:var(--amber);color:#111;padding:0 2px}
-#viewer{position:fixed;inset:0;background:rgba(5,10,30,.92);z-index:6000;display:none;overflow:auto;padding:20px;text-align:center}
+#viewer{position:fixed;inset:0;background:#050a1e;z-index:6000;display:none;overflow:auto;-webkit-overflow-scrolling:touch;text-align:center;
+  padding:calc(env(safe-area-inset-top) + 62px) 8px calc(env(safe-area-inset-bottom) + 90px)}
+/* toolbar sits below the iPhone status bar, solid so nothing shows through */
+.vbar{position:fixed;left:0;right:0;top:0;z-index:2;display:flex;gap:8px;align-items:center;background:#0b1636;border-bottom:1px solid var(--line);
+  padding:calc(env(safe-area-inset-top) + 8px) 10px 8px}
+.vgap{flex:1}.vbtn{font-size:16px;padding:10px 14px;min-height:44px}
+.vinfo{font-size:12px;color:var(--mute);margin:0 0 8px}
+.vpage canvas{max-width:100%}
+.vfab{position:fixed;right:16px;bottom:calc(env(safe-area-inset-bottom) + 18px);z-index:3;width:64px;height:64px;border-radius:50%;border:none;
+  background:var(--red);color:#fff;font-size:28px;font-weight:800;box-shadow:0 6px 20px rgba(0,0,0,.5);cursor:pointer}
+body.noscroll{overflow:hidden}
 #viewer canvas,#viewer img{max-width:100%;background:#fff}
 .sec{margin:16px 0 8px;padding-top:10px;border-top:1px solid var(--line);font:700 13px var(--mono);letter-spacing:1px;text-transform:uppercase;color:#bcd0ff}
 .rbox{background:#fffdf3;color:#111;border:3px solid var(--amber);border-radius:14px;padding:14px 18px;margin:6px 0 12px;max-width:860px}
@@ -803,16 +813,21 @@ async function openPage(fileId,pageNo,opts={},fromBack){
   if(!fromBack&&v.style.display==='block'&&v.dataset.cur) vHist.push(JSON.parse(v.dataset.cur));
   if(v.style.display!=='block'&&!fromBack) vHist.length=0;
   v.dataset.cur=JSON.stringify([fileId,pageNo,opts]);
-  v.innerHTML=`<div style="margin-bottom:8px;position:sticky;top:0;z-index:2"><button class="btn" id="vClose">Close</button> ${vHist.length?'<button class="btn" id="vBack">← Back</button>':''}
-   <button class="btn small" id="vPrev">◀</button> <button class="btn small" id="vNext">▶</button> <span class="muted">${esc(f.name)} — page ${pageNo}/${f.pages.length} · blue boxes are the PDF's links</span></div>`;
-  v.style.display='block';
-  try{v.appendChild(await renderPageEl(f,pageNo,2,opts))}catch(e){console.error(e);v.insertAdjacentHTML('beforeend','<div class="muted">Could not render this page.</div>')}
-  $('#vClose').onclick=()=>{v.style.display='none';vHist.length=0};
+  freeCanvases(v);
+  v.innerHTML=`<div class="vbar"><button class="btn vbtn" id="vClose">✕ Close</button>${vHist.length?'<button class="btn vbtn" id="vBack">← Back</button>':''}
+   <span class="vgap"></span><button class="btn vbtn" id="vPrev" aria-label="Previous page">◀</button><button class="btn vbtn" id="vNext" aria-label="Next page">▶</button></div>
+   <div class="vinfo">${esc(f.name)} · page ${pageNo}/${f.pages.length} · blue boxes are links</div>
+   <div class="vpage"></div><button class="vfab" id="vClose2" aria-label="Close map">✕</button>`;
+  v.style.display='block'; v.scrollTop=0; document.body.classList.add('noscroll');
+  const vp=v.querySelector('.vpage');
+  try{vp.appendChild(await renderPageEl(f,pageNo,Math.min(2.4,fitScale(vp,f,pageNo,1800)),opts))}catch(e){console.error(e);vp.insertAdjacentHTML('beforeend','<div class="muted">Could not render this page.</div>')}
+  const closeV=()=>{freeCanvases(v);v.innerHTML='';v.style.display='none';vHist.length=0;document.body.classList.remove('noscroll')};
+  $('#vClose').onclick=closeV; $('#vClose2').onclick=closeV;
   if($('#vBack'))$('#vBack').onclick=()=>{const p=vHist.pop();if(p)openPage(p[0],p[1],p[2],true)};
   $('#vPrev').onclick=()=>pageNo>1&&openPage(fileId,pageNo-1);
   $('#vNext').onclick=()=>pageNo<f.pages.length&&openPage(fileId,pageNo+1);
 }
-document.addEventListener('keydown',e=>{if(e.key==='Escape')$('#viewer').style.display='none'});
+document.addEventListener('keydown',e=>{if(e.key==='Escape'&&$('#vClose'))$('#vClose').click()});
 
 /* ================= MATCHING ================= */
 let FILES_VER=0; const matchCache=new Map();
