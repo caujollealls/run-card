@@ -750,8 +750,8 @@ function lookupStreet(street){
   const out=[]; const seen=new Set();
   streetKeys(street).forEach(k=>{(INDEX.get(k)||[]).forEach(e=>{const id=e.file.id+'|'+e.row.page+'|'+e.row.blk+'|'+e.row.map+'|'+e.row.complex+'|'+e.row.street;if(!seen.has(id)){seen.add(id);out.push(e)}})});
   if(!out.length){ // weak match: same name without suffix (CAD "GEORGIA AV" vs file "GEORGIA AVENUE")
-    const base=stripSuffix(normStreet(street));
-    INDEX.forEach((v,k)=>{if(stripSuffix(k)===base)v.forEach(e=>{const id=e.file.id+'|'+e.row.page+'|'+e.row.blk+'|'+e.row.map+'|'+e.row.street;if(!seen.has(id)){seen.add(id);out.push(e)}})});
+    const qn=normStreet(street), base=stripSuffix(qn), qHas=base!==qn;
+    INDEX.forEach((v,k)=>{if(stripSuffix(k)===base&&(!qHas||stripSuffix(k)===k))v.forEach(e=>{const id=e.file.id+'|'+e.row.page+'|'+e.row.blk+'|'+e.row.map+'|'+e.row.street;if(!seen.has(id)){seen.add(id);out.push(e)}})});
   }
   return out;
 }
@@ -1431,13 +1431,18 @@ function bookStation(addr){
   const ranked=Object.entries(score).sort((a,b)=>b[1]-a[1]||(+b[0]===home)-(+a[0]===home));
   return ranked.length?+ranked[0][0]:null;
 }
+function bookStationBlock(addr){ // only a real block hit counts
+  const parts=parseAddress(String(addr||'').toUpperCase()); let best=null,bs=0; const home=+LS.get('homeSt',19);
+  parts.forEach(p=>lookupStreet(p.street).forEach(e=>{const st=e.file.station;if(!st||!selected.has(st))return;const sc=blkScore(p.num,e.row.blk);
+    if(sc>0&&(sc>bs||(sc===bs&&st===home))){bs=sc;best=st}}));
+  return best;
+}
 // Map set: first two digits of the CAD box # = station. If that station's books don't have the street, use the book that does.
 function pickStation(inc){
   const bs=boxStation(inc.box);
   if(bs!=null){const parts=parseAddress(String(inc.address||'').toUpperCase());
     if(parts.some(p=>lookupStreet(p.street).some(e=>e.file.station===bs))) return bs;
-    if(!FILES.some(f=>f.station===bs&&selected.has(bs))) return bookStation(inc.address)??bs;
-    return bookStation(inc.address)??bs}
+    return bookStationBlock(inc.address)??bs} // box station has no book / no listing: use another book only if it covers this block
   return bookStation(inc.address);
 }
 function lookupAddress(){
