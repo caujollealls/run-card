@@ -307,7 +307,7 @@ html.light #status .dot{box-shadow:none}
     <input type="text" id="lookupAddr" placeholder="Look up an address" autocomplete="off" style="flex:1.3">
     <button class="btn route" id="lookupBtn">Route</button>
   </div>
-  <table id="cadTable"><thead><tr><th>Date</th><th>Address</th><th>Description</th><th>Units</th><th>Box</th></tr></thead><tbody></tbody></table>
+  <table id="cadTable"><thead><tr><th>Date</th><th>Address</th><th>Description</th><th>Units</th><th>Sta / Map</th></tr></thead><tbody></tbody></table>
   <div class="small muted" style="margin-top:10px">Live from <a href="https://cad.sta03.org/" target="_blank">cad.sta03.org</a> · refreshes every 2 s · red rows match your running-route books (street + block + box station)</div>
 </section>
 
@@ -902,7 +902,8 @@ document.addEventListener('keydown',e=>{if(e.key==='Escape'&&$('#vClose'))$('#vC
 /* ================= MATCHING ================= */
 let FILES_VER=0; const matchCache=new Map();
 function matchIncident(inc){
-  const ck=incKey(inc)+'|'+inc.box+'|'+FILES_VER+'|'+[...selected].join(',');
+  inc.station=pickStation(inc);
+  const ck=incKey(inc)+'|'+inc.station+'|'+FILES_VER+'|'+[...selected].join(',');
   if(matchCache.has(ck)) return matchCache.get(ck);
   const res=computeMatch(inc); if(matchCache.size>400) matchCache.clear(); matchCache.set(ck,res); return res;
 }
@@ -983,7 +984,6 @@ function computeMatch(inc){
     // fallback map-page search (used when the index row has no working hyperlink)
     const ids=[]; if(res.boxRow&&isBoxId(res.boxRow.row.map)) ids.push(res.boxRow.row.map);
     if(res.route&&res.route.map) ids.push(res.route.map);
-    const bx=String(inc.box||'').replace(/\D/g,''); if(bx.length===4) ids.push(bx,bx.slice(0,2)+'-'+bx.slice(2));
     res.boxMap=findMapPages(st,[...new Set(ids)],'boxmap');
     if(res.detail) res.complexMap=findMapPages(st,[res.detail.id].filter(Boolean),'complex',res.detail.name);
   }
@@ -1357,7 +1357,7 @@ function processIncidents(){
 function rematch(){if(INCIDENTS.length){INCIDENTS.forEach(i=>i.match=matchIncident(i));ALERTS.forEach((inc,k)=>inc.match=matchIncident(inc));renderCad([]);renderAlerts()}}
 function matchBadge(m){
   if(m.matched) return `<span class="pill red">STA ${m.station}${m.blockHit?' · block':''}</span>`;
-  if(m.streetOnly.length) return `<span class="pill amber" title="Street is in your files but box # station differs">street only</span>`;
+  if(m.streetOnly.length) return `<span class="pill amber" title="Street is in your books but not this block">street only</span>`;
   return '';
 }
 function shortDate(d){const m=String(d).match(/^(\d\d\/\d\d)\s+(\d\d:\d\d)/);return m?m[1]+' '+m[2]:d}
@@ -1370,7 +1370,7 @@ function renderCad(newOnes){
    <td><div class="addr">${esc(i.address)}</div>${mp?`<div class="mapno">Map ${esc(mp.replace(/\s+/g,''))}${m.detail?' · '+esc(m.detail.id):''}</div>`:''}${!m.matched&&m.streetOnly.length?'<div class="mapno" style="color:var(--mute)">street in other book</div>':''}</td>
    <td><span class="desc">${esc(i.description)}</span><span class="code">${esc(i.code)}</span></td>
    <td class="units">${unitTokens(i.units).map(u=>RIDE.units.includes(u)?`<span class="myunit">${esc(u)}</span>`:esc(u)).join(' ')}</td>
-   <td class="box">${esc(i.box)||'—'}${i.station?`<small>Sta ${i.station}</small>`:''}</td></tr>`}).join('');
+   <td class="box">${i.station?'Sta '+i.station:'—'}${mp?`<small>${esc(mp.replace(/\s+/g,''))}</small>`:''}</td></tr>`}).join('');
   applyFilter();
 }
 function applyFilter(){
@@ -1379,15 +1379,28 @@ function applyFilter(){
 }
 $('#boardFilter').addEventListener('input',applyFilter);
 // Address lookup: same matching as a live call; station comes from the books (home station wins ties)
+// Which station's book covers this address: street + block match in the loaded indexes (the CAD box # is not used)
+function bookStation(addr){
+  const parts=parseAddress(String(addr||'').toUpperCase()); const score={};
+  parts.forEach(p=>lookupStreet(p.street).forEach(e=>{const st=e.file.station;if(!st||!selected.has(st))return;const s=blkScore(p.num,e.row.blk)+0.01;score[st]=Math.max(score[st]||0,s)}));
+  const home=+LS.get('homeSt',19);
+  const ranked=Object.entries(score).sort((a,b)=>b[1]-a[1]||(+b[0]===home)-(+a[0]===home));
+  return ranked.length?+ranked[0][0]:null;
+}
+// Map set: first two digits of the CAD box # = station. If that station's books don't have the street, use the book that does.
+function pickStation(inc){
+  const bs=boxStation(inc.box);
+  if(bs!=null){const parts=parseAddress(String(inc.address||'').toUpperCase());
+    if(parts.some(p=>lookupStreet(p.street).some(e=>e.file.station===bs))) return bs;
+    if(!FILES.some(f=>f.station===bs&&selected.has(bs))) return bookStation(inc.address)??bs;
+    return bookStation(inc.address)??bs}
+  return bookStation(inc.address);
+}
 function lookupAddress(){
   const addr=$('#lookupAddr').value.trim().toUpperCase(); if(!addr) return;
-  const parts=parseAddress(addr); const score={};
-  parts.forEach(p=>lookupStreet(p.street).forEach(e=>{const st=e.file.station;if(!st||!selected.has(st))return;const s=blkScore(p.num,e.row.blk)+0.01;score[st]=Math.max(score[st]||0,s)}));
-  const home=+LS.get('homeSt',19); let st=null;
-  const ranked=Object.entries(score).sort((a,b)=>b[1]-a[1]||(+b[0]===home)-(+a[0]===home));
-  if(ranked.length) st=+ranked[0][0];
+  const st=bookStation(addr);
   const inc={date:new Date().toLocaleString('en-US',{month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit',hour12:false}).replace(',',''),
-    address:addr,code:'LOOKUP',description:'Address lookup',units:'',box:st?String(st).padStart(2,'0')+'00':'',station:st};
+    address:addr,code:'LOOKUP',description:'Address lookup',units:'',box:'',station:st};
   inc.match=matchIncident(inc);
   if(!st) flash('That street isn’t in any loaded book — showing the address on the map only.');
   showIncident(inc);
@@ -1421,7 +1434,7 @@ async function fireAlert(inc){
   try{const ll=await geocode(inc.address);inc._ll=ll}catch(e){}
   const mp=mapOf(inc.match), rt=mp?'Map '+String(mp).replace(/\s+/g,''):'';
   let dist=''; try{const o=routeOrigin(inc);if(o&&inc._ll){const r=await shortestRoute(o,inc._ll);dist=fmtDist(r.distance)+' from '+o.label}}catch(e){}
-  const body=`${inc.description}\nUnits: ${inc.units} · Box: ${inc.box}${rt?' · '+rt:''}${dist?'\n'+dist:''}\nTap for directions`;
+  const body=`${inc.description}\nUnits: ${inc.units}${inc.station?" · Sta "+inc.station:""}${rt?' · '+rt:''}${dist?'\n'+dist:''}\nTap for directions`;
   if('Notification' in window && Notification.permission==='granted'){
     const mu=myUnits(inc), url=deepLink(inc);
     const title=`🚒 ${mu.length?mu.join(' ')+' — ':''}${inc.address}${inc.match.station?' (STA '+inc.match.station+')':''}`;
@@ -1430,7 +1443,7 @@ async function fireAlert(inc){
       n.onclick=()=>{window.focus();showIncident(inc);n.close()}}catch(e){}
   }
   const t=document.createElement('div');t.className='toast';
-  t.innerHTML=`<button class="x" title="Dismiss">×</button><b>🚒 ${esc(inc.address)}</b> <span class="pill red">Box ${esc(inc.box)}</span>
+  t.innerHTML=`<button class="x" title="Dismiss">×</button><b>🚒 ${esc(inc.address)}</b> ${inc.station?`<span class="pill red">Sta ${inc.station}</span>`:""}
     <div class="rt">${esc([rt,dist].filter(Boolean).join(' · ')||'Tap for directions')}</div><div class="small">${esc(shortDate(inc.date))} · ${esc(inc.description)} · <span style="color:var(--pink);font-family:var(--mono)">${esc(inc.units)}</span></div>`;
   t.onclick=e=>{if(!e.target.classList.contains('x'))showIncident(inc);t.remove()};
   $('#alertBanner').prepend(t); setTimeout(()=>t.remove(),90000);
@@ -1552,7 +1565,7 @@ function routeBox(inc){
 function incidentCard(inc,id){
   const m=inc.match; const rt=m.routeText; const R=m.route;
   const hit=m.rows.filter(r=>r.hitBlock), rest=m.rows.filter(r=>!r.hitBlock);
-  return `<div class="card"><h3>${esc(inc.address)} ${matchBadge(m)} <span class="pill">Box ${esc(inc.box)}</span></h3>
+  return `<div class="card"><h3>${esc(inc.address)} ${matchBadge(m)}</h3>
    <div class="small" style="margin-bottom:8px">${esc(inc.date)} · <b>${esc(inc.description)}</b> · Units: ${esc(inc.units)}</div>
    <div class="sec"><b>1 · Directions</b></div>
    <div id="dir_${id}"></div>
@@ -1563,7 +1576,7 @@ function incidentCard(inc,id){
    ${(m.details||[]).map((d,k)=>`<div class="sec"><b>3${k?String.fromCharCode(97+k):''} · Site / complex / detail map</b> <span class="pill ${/differs/.test(d.label)?'red':'amber'}">${esc(d.label)}</span></div><div id="cm_${id}_${k}" class="mapbox"></div>`).join('')}
    <div id="mapSlot_${id}" class="mapslot"></div>
    <div class="sec"><b>Links</b></div>
-   <div class="small"><a href="${mapLink(inc)}" target="_blank">ArcGIS (Fire Station Areas)</a> · <a href="https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(inc.address+', Montgomery County, MD')}" target="_blank">Google Maps</a> · Box ${esc(inc.box)} → Station ${m.station??'?'} · Code ${esc(inc.code)}</div>
+   <div class="small"><a href="${mapLink(inc)}" target="_blank">ArcGIS (Fire Station Areas)</a> · <a href="https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(inc.address+', Montgomery County, MD')}" target="_blank">Google Maps</a> · Box ${esc(inc.box||'—')} → Station ${m.station??'?'} · Code ${esc(inc.code)}</div>
    ${m.streetOnly.length?`<details class="small" style="margin-top:6px"><summary>Same street in other stations' files (${m.streetOnly.length})</summary>${idxTable(m.streetOnly)}</details>`:''}
    <details class="small" style="margin-top:6px"><summary>All pages mentioning this street (${(m.routePages||[]).length})</summary><div class="pages" id="rp_${id}"></div></details>
    <div style="margin-top:10px"><button class="btn primary" id="go_${id}">Show route on map</button></div></div>`;
@@ -1745,7 +1758,7 @@ function deepLink(inc){const u=new URL(location.href.split('?')[0].split('#')[0]
 // Opened from a Pushover/notification link: ?addr=9400 CAROLINE AVE&box=1605&units=…
 function openFromLink(search){
   const q=new URLSearchParams(search||location.search); const addr=q.get('addr'); if(!addr) return false;
-  const box=q.get('box')||''; const st=boxStation(box);
+  const box=q.get('box')||''; const st=pickStation({address:addr,box});
   const inc=INCIDENTS.find(i=>i.address.toUpperCase()===addr.toUpperCase())||{date:new Date().toLocaleString('en-US',{month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit',hour12:false}).replace(',',''),
     address:addr.toUpperCase(),code:'',description:q.get('desc')||'Dispatched',units:q.get('units')||'',box,station:st};
   if(st==null&&!inc.station){$('#lookupAddr').value=addr;lookupAddress()} else {inc.match=matchIncident(inc);showIncident(inc)}
