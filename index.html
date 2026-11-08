@@ -32,6 +32,21 @@ header{display:flex;align-items:center;gap:16px;padding:18px 28px 6px;flex-wrap:
 .hdr-right{margin-left:auto;display:flex;align-items:center;gap:18px}
 #clock{font:700 40px var(--mono);letter-spacing:1px}
 #status{font:600 15px var(--mono);color:var(--text);display:flex;align-items:center;gap:6px}
+.sheet{position:fixed;inset:0;z-index:7000;background:rgba(3,8,25,.6);display:flex;align-items:flex-end;justify-content:center}
+.sheet[hidden]{display:none}
+.sheet-card{background:#13224f;border:1px solid var(--line);border-radius:18px 18px 0 0;width:100%;max-width:560px;padding:16px 16px calc(16px + env(safe-area-inset-bottom));box-shadow:0 -10px 40px rgba(0,0,0,.5);max-height:88vh;overflow:auto}
+@media (min-width:701px){.sheet{align-items:center}.sheet-card{border-radius:18px}}
+.sheet-h{display:flex;justify-content:space-between;align-items:center;font-size:18px;margin-bottom:12px}
+.sheet-x{background:none;border:none;color:var(--text);font-size:28px;line-height:1;cursor:pointer}
+.bigtoggle{width:100%;padding:16px;border-radius:14px;border:none;font:800 20px var(--sans);cursor:pointer}
+.bigtoggle.on{background:var(--green);color:#06301a}.bigtoggle.off{background:#3a4566;color:#dfe6ff}
+.ugrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(92px,1fr));gap:8px}
+.ubtn{padding:14px 6px;border-radius:12px;border:2px solid var(--line);background:rgba(255,255,255,.05);color:var(--text);font:800 17px var(--mono);cursor:pointer}
+.ubtn.sel{background:var(--pink);border-color:var(--pink);color:#fff}
+.arow{display:flex;align-items:center;gap:10px;padding:12px;border:1px solid var(--line);border-radius:12px;margin-bottom:8px;background:var(--panel);cursor:pointer}
+.arow.open{display:block;cursor:default;padding:0;border:none;background:none}
+.arow-main{flex:1;min-width:0}.arow .mapno{font:700 13px var(--mono);color:var(--amber)}.arow .units{font-family:var(--mono);color:var(--pink);margin-top:2px}
+.arow-go{font-size:26px;color:var(--mute)}
 .ridechip{font:700 13px var(--mono);padding:5px 10px;border-radius:8px;cursor:pointer;white-space:nowrap;border:1.5px solid var(--line);background:transparent;color:var(--text)}
 .ridechip.on{background:var(--pink);border-color:var(--pink);color:#fff}.ridechip.off{color:#cfd8f5}
 .uchip{font:700 13px var(--mono);padding:5px 10px;border-radius:8px;border:1.5px solid var(--line);background:rgba(255,255,255,.05);color:var(--text);cursor:pointer}
@@ -235,7 +250,7 @@ header{padding-top:max(18px,env(safe-area-inset-top))}
     </div>
   </div>
   <div class="card" id="rideBox">
-    <h3>Apparatus I'm riding</h3>
+    <h3>Apparatus I'm riding <button class="btn small" id="rideOpenSheet" style="margin-left:8px">Quick change</button></h3>
     <label style="display:flex;align-items:center;gap:10px;font-size:16px;margin-bottom:12px"><input type="checkbox" id="rideOn" style="width:22px;height:22px"> <b>Only alert when my apparatus is dispatched</b></label>
     <div class="small muted" style="margin-bottom:6px">My units (alerts fire when any of these appear in the Units column):</div>
     <div id="rideSel" style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px"></div>
@@ -289,6 +304,17 @@ header{padding-top:max(18px,env(safe-area-inset-top))}
   <div id="idxOut"></div>
 </section>
 
+<div id="rideSheet" class="sheet" hidden>
+  <div class="sheet-card">
+    <div class="sheet-h"><b>Apparatus I'm riding</b><button class="sheet-x" id="rsClose" aria-label="Close">×</button></div>
+    <button id="rsToggle" class="bigtoggle off">Apparatus alerts: OFF</button>
+    <div class="small muted" id="rsHint" style="margin:6px 0 12px"></div>
+    <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px"><span class="small muted">Station</span><select id="rsStation"></select></div>
+    <div class="ugrid" id="rsUnits"></div>
+    <div style="display:flex;gap:8px;margin-top:10px"><input type="text" id="rsAdd" placeholder="Other unit, e.g. T725" style="flex:1;min-width:0" autocapitalize="characters"><button class="btn small" id="rsAddBtn">Add</button></div>
+    <div style="display:flex;gap:8px;margin-top:12px"><button class="btn small" id="rsClear">Clear units</button><button class="btn primary" id="rsDone" style="margin-left:auto">Done</button></div>
+  </div>
+</div>
 <div id="alertBanner"></div>
 <div id="viewer"></div>
 
@@ -1185,15 +1211,29 @@ const unitTokens=s=>String(s||'').toUpperCase().split(/[\s,]+/).filter(Boolean);
 function myUnits(inc){const set=new Set(RIDE.units);return unitTokens(inc.units).filter(u=>set.has(u))}
 function saveRide(){LS.set('rideOn',RIDE.on);LS.set('rideUnits',RIDE.units);renderRide();poSync();
   // re-evaluate the board under the new rule without re-alerting calls already showing
-  INCIDENTS.forEach(i=>seen.add(incKey(i))); ALERTS.clear(); alertSig=''; if(INCIDENTS.length) processIncidents()}
+  INCIDENTS.forEach(i=>seen.add(incKey(i))); ALERTS.clear(); alertSig=''; alertOpen=null; if(INCIDENTS.length) processIncidents()}
 function suggestedUnits(){
   const hs=String(+LS.get('homeSt',19)).padStart(2,'0'), base=['E','PE','T','AT','TK','RS','R','A','M','BC','EMS'].map(p=>p+'7'+hs);
   const seenOnBoard=INCIDENTS.flatMap(i=>unitTokens(i.units)).filter(u=>new RegExp('7'+hs+'[A-Z]?$').test(u));
   return [...new Set([...base,...seenOnBoard])].filter(u=>!RIDE.units.includes(u)).sort();
 }
+let SHEET_ST=null;
+function openSheet(){ $('#rsStation').value=String(SHEET_ST||+LS.get('homeSt',19)); $('#rideSheet').hidden=false; renderSheet(); }
+function renderSheet(){
+  if($('#rideSheet').hidden) return;
+  const st=String(+$('#rsStation').value).padStart(2,'0');
+  const base=['E','PE','T','AT','TK','RS','R','A','M','BC','EMS'].map(p=>p+'7'+st);
+  const onBoard=INCIDENTS.flatMap(i=>unitTokens(i.units)).filter(u=>new RegExp('7'+st+'[A-Z]?$').test(u));
+  const all=[...new Set([...RIDE.units,...base,...onBoard])];
+  $('#rsUnits').innerHTML=all.map(u=>`<button class="ubtn ${RIDE.units.includes(u)?'sel':''}" data-u="${esc(u)}">${esc(u)}</button>`).join('');
+  const t=$('#rsToggle'); t.className='bigtoggle '+(RIDE.on&&RIDE.units.length?'on':'off');
+  t.textContent=RIDE.on&&RIDE.units.length?'Apparatus alerts: ON':'Apparatus alerts: OFF';
+  $('#rsHint').textContent=RIDE.units.length?(RIDE.on?'Alerting only when '+RIDE.units.join(' / ')+' is on a call.':'Off — alerting on mapbook matches instead.'):'Tap the unit you are riding, then turn alerts ON.';
+}
 function renderRide(){
+  renderSheet();
   const chip=$('#rideChip'); if(chip){chip.className='ridechip '+(RIDE.on&&RIDE.units.length?'on':'off');
-    chip.innerHTML=RIDE.units.length?`🚒 ${esc(RIDE.units.join(' · '))} <b>${RIDE.on?'ON':'OFF'}</b>`:'🚒 Set apparatus'}
+    chip.innerHTML=RIDE.units.length?`🚒 ${esc(RIDE.units.join(' · '))} <b>${RIDE.on?'ON':'OFF'}</b> ▾`:'🚒 Set apparatus ▾'}
   const box=$('#rideBox'); if(!box) return;
   $('#rideOn').checked=RIDE.on;
   $('#rideSel').innerHTML=RIDE.units.length?RIDE.units.map(u=>`<span class="uchip sel">${esc(u)} <button data-rm="${esc(u)}" title="Remove">×</button></span>`).join(''):'<span class="muted small">None selected</span>';
@@ -1303,16 +1343,27 @@ async function fireAlert(inc){
   [...$('#alertBanner').children].slice(3).forEach(x=>x.remove());
   document.title='🔴 '+inc.address+' – MoCo Routes'; setTimeout(()=>document.title='Run Card',30000);
 }
-let alertSig='';
-function renderAlerts(){
+let alertSig='', alertOpen=null;
+function alertsVisible(){return $('#tab-alerts').classList.contains('active')}
+function renderAlerts(force){
   const list=[...ALERTS.values()].reverse();
-  const sig=list.map(i=>incKey(i)+i.units+(i.match.rows.length)+(i.match.boxMap||[]).length+(i.match.routePages||[]).length).join('~');
-  if(sig===alertSig) return; alertSig=sig;
   $('#alertCount').textContent=list.length; $('#alertCount').className='pill'+(list.length?' red':'');
-  $('#alertList').innerHTML=list.length?list.map((inc,i)=>incidentCard(inc,'a'+i)).join(''):'<div class="muted">No matched incidents yet.</div>';
-  list.forEach((inc,i)=>{const b=document.getElementById('go_a'+i);if(b)b.onclick=()=>showIncident(inc)});
-  list.forEach((inc,i)=>fillCard('a'+i,inc));
+  if(!alertsVisible()&&!force){alertSig='';return}          // draw nothing heavy while the tab is hidden
+  const sig=list.map(i=>incKey(i)+i.units+(i.match.rows.length)+(mapOf(i.match)||'')).join('~')+'|'+alertOpen;
+  if(sig===alertSig) return; alertSig=sig;
+  const box=$('#alertList'); freeCanvases(box);
+  if(!list.length){box.innerHTML='<div class="muted">No alerts yet.</div>';return}
+  box.innerHTML=list.map((inc,i)=>{const k=incKey(inc),mu=myUnits(inc),mp=mapOf(inc.match);
+    return k===alertOpen?`<div class="arow open" data-k="${esc(k)}">${incidentCard(inc,'a'+i)}<button class="btn small acollapse">Close</button></div>`:
+    `<div class="arow" data-k="${esc(k)}"><div class="arow-main"><b>${esc(inc.address)}</b>${mp?` <span class="mapno">Map ${esc(String(mp).replace(/\s+/g,''))}</span>`:''}<div class="small">${esc(shortDate(inc.date))} · ${esc(inc.description)}</div>
+      <div class="small units">${unitTokens(inc.units).map(u=>mu.includes(u)?`<span class="myunit">${esc(u)}</span>`:esc(u)).join(' ')}</div></div><span class="arow-go">›</span></div>`}).join('');
+  list.forEach((inc,i)=>{if(incKey(inc)===alertOpen){const b=document.getElementById('go_a'+i);if(b)b.onclick=()=>showIncident(inc);fillCard('a'+i,inc)}});
 }
+document.addEventListener('click',e=>{
+  if(e.target.closest('.acollapse')){alertOpen=null;renderAlerts();return}
+  const r=e.target.closest('.arow:not(.open)'); if(!r) return;
+  alertOpen=r.dataset.k; renderAlerts(); setTimeout(()=>{const o=document.querySelector('.arow.open');o&&o.scrollIntoView({block:'start'})},50);
+});
 function cellLink(f,row,kind,text){
   const l=kind==='map'?row.mapLink:row.detailLink;
   if(!text) return '';
@@ -1423,7 +1474,13 @@ function incidentCard(inc,id){
    <details class="small" style="margin-top:6px"><summary>All pages mentioning this street (${(m.routePages||[]).length})</summary><div class="pages" id="rp_${id}"></div></details>
    <div style="margin-top:10px"><button class="btn primary" id="go_${id}">Show route on map</button></div></div>`;
 }
+function freeCanvases(root){if(root)root.querySelectorAll('canvas').forEach(c=>{c.width=0;c.height=0})} // iPhone caps total canvas memory
+function fitScale(el,f,page,maxPx=1300){ // draw page images at screen size, not larger
+  const w=((f.sizes||[])[page-1]||[612])[0]||612, cw=Math.max(280,(el&&el.clientWidth)||600)*Math.min(2,window.devicePixelRatio||1);
+  return Math.max(0.6,Math.min(maxPx,cw)/w);
+}
 async function putPage(el,p,scale,big,opts={}){
+  if(big&&!opts.crop) scale=fitScale(el,p.file,p.page);
   const wrap=document.createElement('div'); if(!big) wrap.style.maxWidth='300px';
   try{const c=await renderPageEl(p.file,p.page,scale,opts); c.onclick=()=>openPage(p.file.id,p.page,opts.crop?{rects:opts.rects,band:opts.band}:{}); c.style.cursor='zoom-in'; wrap.appendChild(c)}
   catch(e){console.error(e);const b=document.createElement('button');b.className='btn small';b.textContent='Open page';b.onclick=()=>openPage(p.file.id,p.page);wrap.appendChild(b)}
@@ -1469,7 +1526,8 @@ async function fillCard(id,inc){
   const cm2=document.getElementById('cm2_'+id);
   if(cm2) await showLinkedPage(cm2,m.detailAlt.item,m.detailAlt.link,[],'detail map',m.detailAlt.id);
   const rp=document.getElementById('rp_'+id);
-  if(rp){rp.innerHTML='';for(const p of (m.routePages||[]).slice(0,6)) await putPage(rp,p,0.8,false)}
+  if(rp){const det=rp.closest('details');const load=async()=>{if(rp.dataset.done)return;rp.dataset.done=1;rp.innerHTML='';for(const p of (m.routePages||[]).slice(0,6)) await putPage(rp,p,0.5,false)};
+    if(det){det.addEventListener('toggle',()=>{if(det.open)load();else{freeCanvases(rp);rp.innerHTML='';delete rp.dataset.done}})}}
 }
 /* ================= MAP ================= */
 let map, routeLayer, hydLayer, areaLayer, stationLayer, incMarker, STATIONS={}, AREAS={};
@@ -1538,7 +1596,7 @@ async function drawRoute(inc){
 }
 async function showIncident(inc){
   switchTab('map'); setTimeout(()=>map.invalidateSize(),50);
-  const side=$('#mapSide');
+  const side=$('#mapSide'); freeCanvases(side);
   side.innerHTML=incidentCard(inc,'m')+'<div style="margin-top:8px"><button class="btn small" id="zoomAddr">Zoom to address & hydrants</button></div>';
   fillCard('m',inc);
   const gb=document.getElementById('go_m'); if(gb) gb.style.display='none';
@@ -1548,7 +1606,8 @@ async function showIncident(inc){
 }
 
 /* ================= TABS ================= */
-function switchTab(t){document.querySelectorAll('nav button').forEach(b=>b.classList.toggle('active',b.dataset.tab===t));document.querySelectorAll('.tab').forEach(s=>s.classList.toggle('active',s.id==='tab-'+t));if(t==='map'&&map)setTimeout(()=>map.invalidateSize(),50)}
+function switchTab(t){document.querySelectorAll('nav button').forEach(b=>b.classList.toggle('active',b.dataset.tab===t));document.querySelectorAll('.tab').forEach(s=>s.classList.toggle('active',s.id==='tab-'+t));if(t==='map'&&map)setTimeout(()=>map.invalidateSize(),50);
+  if(t==='alerts'){alertSig='';renderAlerts()} else {alertOpen=null;freeCanvases($('#alertList'));$('#alertList').innerHTML='';alertSig=''}}
 document.querySelectorAll('nav button').forEach(b=>b.onclick=()=>switchTab(b.dataset.tab));
 ['optSound','optStartup','optStreetOnly'].forEach(id=>{const el=document.getElementById(id);el.checked=LS.get(id,el.checked);el.onchange=()=>{LS.set(id,el.checked);rematch()}});
 
@@ -1602,7 +1661,19 @@ async function initPWA(){
   initMap(); refreshAll(); poll(); startGeo(); updGeo(); renderRide(); initPWA(); initPO();
   if(location.search.includes('addr=')) setTimeout(()=>openFromLink(),2500); // wait for the first CAD read
   $('#rideOn').onchange=e=>{if(e.target.checked&&!RIDE.units.length){e.target.checked=false;flash('Pick at least one unit first.');return}RIDE.on=e.target.checked;saveRide()};
-  $('#rideChip').onclick=()=>{if(!RIDE.units.length){switchTab('notify');return}RIDE.on=!RIDE.on;saveRide();flash(RIDE.on?'Alerts only for '+RIDE.units.join(', '):'Apparatus filter off — alerting on book matches')};
+  $('#rideChip').onclick=openSheet; $('#rideOpenSheet').onclick=openSheet;
+  $('#rsStation').innerHTML=Array.from({length:NSTATIONS},(_,i)=>`<option value="${i+1}">Station ${i+1}</option>`).join('');
+  $('#rsStation').onchange=()=>{SHEET_ST=+$('#rsStation').value;renderSheet()};
+  $('#rsUnits').onclick=e=>{const b=e.target.closest('[data-u]');if(!b)return;const u=b.dataset.u;
+    RIDE.units=RIDE.units.includes(u)?RIDE.units.filter(x=>x!==u):[...RIDE.units,u];
+    if(RIDE.units.length&&!LS.get('rideTouched',false)){RIDE.on=true;LS.set('rideTouched',true)} // first pick turns alerts on
+    if(!RIDE.units.length)RIDE.on=false; saveRide()};
+  $('#rsToggle').onclick=()=>{if(!RIDE.units.length){flash('Tap a unit first.');return}RIDE.on=!RIDE.on;saveRide()};
+  $('#rsClear').onclick=()=>{RIDE.units=[];RIDE.on=false;saveRide()};
+  const sAdd=()=>{const v=$('#rsAdd').value.trim().toUpperCase().replace(/\s+/g,'');if(v){RIDE.units=[...new Set([...RIDE.units,v])];$('#rsAdd').value='';saveRide()}};
+  $('#rsAddBtn').onclick=sAdd; $('#rsAdd').addEventListener('keydown',e=>{if(e.key==='Enter')sAdd()});
+  const closeSheet=()=>{$('#rideSheet').hidden=true}; $('#rsClose').onclick=closeSheet; $('#rsDone').onclick=closeSheet;
+  $('#rideSheet').addEventListener('click',e=>{if(e.target.id==='rideSheet')closeSheet()});
   const addU=()=>{const v=$('#rideAdd').value.trim().toUpperCase().replace(/\s+/g,'');if(v){RIDE.units=[...new Set([...RIDE.units,v])];$('#rideAdd').value='';saveRide()}};
   $('#rideAddBtn').onclick=addU; $('#rideAdd').addEventListener('keydown',e=>{if(e.key==='Enter')addU()});
   $('#homeSt').addEventListener('change',renderRide);
