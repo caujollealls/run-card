@@ -210,7 +210,13 @@ header{padding-top:max(18px,env(safe-area-inset-top))}
 }
 @media (max-width:900px){header{padding:12px 14px}#clock{font-size:28px}.tab{padding:4px 12px 20px}#tab-map.active{flex-direction:column;height:auto}#mapSide{width:auto;max-width:none}#map{height:70vh}}
 </style>
-<style>.mapslot #map{height:62vh;min-height:320px;width:100%;border-radius:12px;border:1px solid var(--line);order:0;margin-top:6px}</style>
+<style>.mapslot #map{isolation:isolate;z-index:0;position:relative;height:62vh;min-height:320px;width:100%;border-radius:12px;border:1px solid var(--line);order:0;margin-top:6px}</style>
+<style>
+/* keep the call's address in view while scrolling */
+#mapSide .card>h3,#alertList .card>h3{position:sticky;top:calc(env(safe-area-inset-top) + var(--navh,48px));z-index:850;background:var(--card);margin:-12px -12px 8px;padding:10px 12px;border-bottom:1px solid var(--line);border-radius:12px 12px 0 0}
+@media (min-width:901px){#mapSide .card>h3{top:-16px}}
+@media (max-width:900px){#mapSide,#tab-map,#alertList{overflow:visible!important}}
+</style>
 <style id="theme">
 /* ===== Appearance: A · Clean Dark (dark mode) / C · Daylight (light mode) ===== */
 /* Option A — Clean Dark: flat graphite, red accent */
@@ -1721,6 +1727,8 @@ function placeMap(){
   if(map) setTimeout(()=>map.invalidateSize(),60);
 }
 let CUR_INC=null; addEventListener('resize',()=>{clearTimeout(placeMap._t);placeMap._t=setTimeout(placeMap,200)});
+function setNavH(){const n=document.querySelector('nav');if(n)document.documentElement.style.setProperty('--navh',n.offsetHeight+'px')}
+addEventListener('resize',setNavH); setTimeout(setNavH,0);
 /* ================= TABS ================= */
 function switchTab(t){document.querySelectorAll('nav button').forEach(b=>b.classList.toggle('active',b.dataset.tab===t));document.querySelectorAll('.tab').forEach(s=>s.classList.toggle('active',s.id==='tab-'+t));if(t==='map'&&map)setTimeout(()=>map.invalidateSize(),50);
   if(t==='alerts'){alertSig='';renderAlerts()} else {alertOpen=null;freeCanvases($('#alertList'));$('#alertList').innerHTML='';alertSig=''}}
