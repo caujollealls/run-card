@@ -461,12 +461,17 @@ const SUFFIX = {STREET:'ST',STR:'ST',AVENUE:'AVE',AV:'AVE',AVN:'AVE',ROAD:'RD',D
  RUN:'RUN',PATH:'PATH',WALK:'WALK',GROVE:'GRV',KNOLL:'KNL',CROSSING:'XING',GLEN:'GLN',HILL:'HL',HOLLOW:'HOLW',LANDING:'LNDG',POINT:'PT',
  RIDGE:'RDG',VIEW:'VW',VISTA:'VIS',PLAZA:'PLZ',CENTER:'CTR',COVE:'CV',GARDENS:'GDNS',HEIGHTS:'HTS',MANOR:'MNR',ALLEY:'ALY',BRIDGE:'BRG',
  TERRACES:'TER',GATEWAY:'GTWY',SPRINGS:'SPGS',STATION:'STA',SPUR:'SPUR',ESTATES:'EST',
- NORTH:'N',SOUTH:'S',EAST:'E',WEST:'W',NORTHEAST:'NE',NORTHWEST:'NW',SOUTHEAST:'SE',SOUTHWEST:'SW',SAINT:'ST',MOUNT:'MT'};
+ NORTH:'N',SOUTH:'S',EAST:'E',WEST:'W',NORTHEAST:'NE',NORTHWEST:'NW',SOUTHEAST:'SE',SOUTHWEST:'SW'};
 // Direction words are only abbreviated at the start/end so "EAST WEST HIGHWAY" -> "EAST WEST HWY" stays matchable
 const DIRS = new Set(['NORTH','SOUTH','EAST','WEST','NORTHEAST','NORTHWEST','SOUTHEAST','SOUTHWEST']);
 function normStreet(s){
-  let w = String(s||'').toUpperCase().replace(/[.,#']/g,' ').replace(/\b(\d+)\s+(ST|ND|RD|TH)\b/g,'$1$2').replace(/\s+/g,' ').trim().split(' ').filter(Boolean);
+  let w = String(s||'').toUpperCase().replace(/['’‘`]/g,'').replace(/[.,#]/g,' ').replace(/\b(\d+)\s+(ST|ND|RD|TH)\b/g,'$1$2').replace(/\s+/g,' ').trim().split(' ').filter(Boolean);
+  // leading name words: "ST CHARLES" = "SAINT CHARLES", "MT VERNON" = "MOUNT VERNON", "FT DETRICK" = "FORT DETRICK"
+  // (only before the last word, so a trailing "ST" is still STREET)
+  for(let i=0;i<w.length-1;i++){ if((w[i]==='MC'||w[i]==='MAC'&&w[i+1].length>2&&w.length>2)&&!SUFFIX[w[i+1]]){w.splice(i,2,w[i]+w[i+1])} } // "MC CAIN" = "MCCAIN"
+  const PRE={DOCTOR:'DR',ST:'SAINT',STE:'SAINT',SAINT:'SAINT',SAINTE:'SAINT',SNT:'SAINT',MT:'MOUNT',MOUNT:'MOUNT',MTN:'MOUNTAIN',FT:'FORT',FORT:'FORT'};
   w = w.map((t,i)=>{
+    if (PRE[t] && i<w.length-1 && (i===0 || DIRS.has(w[i-1]) || /^[NSEW]$/.test(w[i-1]) || ['OLD','NEW','LITTLE','UPPER','LOWER'].includes(w[i-1]))) return PRE[t];
     if (DIRS.has(t)) return t;               // keep direction words; handled by aliases below
     if (i>0 && SUFFIX[t]) return SUFFIX[t];   // never abbreviate the first word ("COURT HOUSE RD")
     return t;
