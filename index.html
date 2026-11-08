@@ -210,6 +210,7 @@ header{padding-top:max(18px,env(safe-area-inset-top))}
 }
 @media (max-width:900px){header{padding:12px 14px}#clock{font-size:28px}.tab{padding:4px 12px 20px}#tab-map.active{flex-direction:column;height:auto}#mapSide{width:auto;max-width:none}#map{height:70vh}}
 </style>
+<style>.mapslot #map{height:62vh;min-height:320px;width:100%;border-radius:12px;border:1px solid var(--line);order:0;margin-top:6px}</style>
 <style id="theme">
 /* ===== Appearance: A · Clean Dark (dark mode) / C · Daylight (light mode) ===== */
 /* Option A — Clean Dark: flat graphite, red accent */
@@ -961,6 +962,15 @@ function computeMatch(inc){
       const pseudo={file:R.file,row:{page:R.page,complex:R.detail,detailLink:R.detailLink},hitBlock:true,score:R.score};
       res.detailAlt={item:pseudo,id:R.detail,link:R.detailLink,label:'Detail '+R.detail+' — running route page differs from index ('+res.detail.id+')'};
     }
+    // every site / complex / detail map that matches this block (not just the best one)
+    {const seen=new Set(), list=[]; const add=d=>{if(!d||!d.id)return;const k=detKey(d.id)+'|'+(d.name||'');if(seen.has(k))return;seen.add(k);list.push(d)};
+     add(res.detail); add(res.detailAlt);
+     hits.forEach(h=>{const r=h.row;
+       if(r.complex){ if(isDetailId(r.complex)) add({item:h,id:r.complex,link:r.detailLink,label:'Detail '+r.complex});
+                      else if(r.map&&!isBoxId(r.map)) add({item:h,id:r.map,link:r.mapLink,name:r.complex,label:r.complex+' · '+r.map}); }
+       else if(isDetailMap(r.map)) add({item:h,id:r.map,link:r.mapLink,label:'Detail '+r.map});
+     });
+     res.details=list.slice(0,5);}
     // pages that mention the street (for the "all pages" list)
     FILES.filter(f=>f.station===st&&f.kind!=='boxmap'&&f.kind!=='complex').forEach(f=>{
       f.pages.forEach((txt,i)=>{
@@ -1547,11 +1557,11 @@ function incidentCard(inc,id){
    <div class="sec"><b>1 · Directions</b></div>
    <div id="dir_${id}"></div>
    <details class="small" style="margin-top:6px"><summary>Street index rows (${m.rows.length})</summary>${hit.length?idxTable(hit)+(rest.length?idxTable(rest):''):idxTable(m.rows)}</details>
-   <div class="sec"><b>2 · Map page</b> ${m.boxRow&&m.boxRow.row.map?`<span class="pill">${esc(m.boxRow.row.map)}</span>`:(R&&R.map?`<span class="pill">${esc(R.map)}</span>`:'')}</div>
+   <div class="sec"><b>2 · Box map</b> ${m.boxRow&&m.boxRow.row.map?`<span class="pill">${esc(m.boxRow.row.map)}</span>`:(R&&R.map?`<span class="pill">${esc(R.map)}</span>`:'')}</div>
    <div id="bm_${id}" class="mapbox"></div>
-   ${m.boxRow&&m.boxRow.row.smap&&m.boxRow.row.smapLink?`<div class="sec"><b>2b · Box map</b> <span class="pill">${esc(m.boxRow.row.smap)}</span></div><div id="bm2_${id}" class="mapbox"></div>`:''}
-   ${m.detail?`<div class="sec"><b>3 · Detail map</b> <span class="pill amber">${esc(m.detail.label)}</span></div><div id="cm_${id}" class="mapbox"></div>`:''}
-   ${m.detailAlt?`<div class="sec"><b>3b · Detail map</b> <span class="pill red">${esc(m.detailAlt.label)}</span></div><div id="cm2_${id}" class="mapbox"></div>`:''}
+   ${m.boxRow&&m.boxRow.row.smap&&m.boxRow.row.smapLink?`<div class="sec"><b>2b · Street map</b> <span class="pill">${esc(m.boxRow.row.smap)}</span></div><div id="bm2_${id}" class="mapbox"></div>`:''}
+   ${(m.details||[]).map((d,k)=>`<div class="sec"><b>3${k?String.fromCharCode(97+k):''} · Site / complex / detail map</b> <span class="pill ${/differs/.test(d.label)?'red':'amber'}">${esc(d.label)}</span></div><div id="cm_${id}_${k}" class="mapbox"></div>`).join('')}
+   <div id="mapSlot_${id}" class="mapslot"></div>
    <div class="sec"><b>Links</b></div>
    <div class="small"><a href="${mapLink(inc)}" target="_blank">ArcGIS (Fire Station Areas)</a> · <a href="https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(inc.address+', Montgomery County, MD')}" target="_blank">Google Maps</a> · Box ${esc(inc.box)} → Station ${m.station??'?'} · Code ${esc(inc.code)}</div>
    ${m.streetOnly.length?`<details class="small" style="margin-top:6px"><summary>Same street in other stations' files (${m.streetOnly.length})</summary>${idxTable(m.streetOnly)}</details>`:''}
@@ -1605,10 +1615,8 @@ async function fillCard(id,inc){
   if(bm) await showLinkedPage(bm,m.boxRow,m.boxRow&&m.boxRow.row.mapLink,m.boxMap,'map');
   const bm2=document.getElementById('bm2_'+id);
   if(bm2) await showLinkedPage(bm2,m.boxRow,m.boxRow.row.smapLink,[],'box map');
-  const cm=document.getElementById('cm_'+id);
-  if(cm) await showLinkedPage(cm,m.detail&&m.detail.item,m.detail&&m.detail.link,m.complexMap,'detail map',m.detail&&isDetailId(m.detail.id)?m.detail.id:null);
-  const cm2=document.getElementById('cm2_'+id);
-  if(cm2) await showLinkedPage(cm2,m.detailAlt.item,m.detailAlt.link,[],'detail map',m.detailAlt.id);
+  for(const [k,d] of (m.details||[]).entries()){const el=document.getElementById('cm_'+id+'_'+k);
+    if(el) await showLinkedPage(el,d.item,d.link,k===0?m.complexMap:[],'detail map',isDetailId(d.id)?d.id:null)}
   const rp=document.getElementById('rp_'+id);
   if(rp){const det=rp.closest('details');const load=async()=>{if(rp.dataset.done)return;rp.dataset.done=1;rp.innerHTML='';for(const p of (m.routePages||[]).slice(0,6)) await putPage(rp,p,0.5,false)};
     if(det){det.addEventListener('toggle',()=>{if(det.open)load();else{freeCanvases(rp);rp.innerHTML='';delete rp.dataset.done}})}}
@@ -1680,15 +1688,26 @@ async function drawRoute(inc){
 }
 async function showIncident(inc){
   switchTab('map'); setTimeout(()=>map.invalidateSize(),50);
-  const side=$('#mapSide'); freeCanvases(side);
+  const side=$('#mapSide'); freeCanvases(side); CUR_INC=inc;
+  if($('#map').parentNode!==$('#tab-map')) $('#tab-map').appendChild($('#map'));
   side.innerHTML=incidentCard(inc,'m')+'<div style="margin-top:8px"><button class="btn small" id="zoomAddr">Zoom to address & hydrants</button></div>';
   fillCard('m',inc);
+  placeMap();
   const gb=document.getElementById('go_m'); if(gb) gb.style.display='none';
   await drawRoute(inc);
   side.querySelectorAll('a[href^="'+ARC_VIEWER.slice(0,40)+'"]').forEach(a=>a.href=mapLink(inc));
   $('#zoomAddr').onclick=()=>inc._ll&&map.setView(inc._ll,18);
 }
 
+// Phone: the live hydrant/route map sits in the call view under the box and detail maps
+function placeMap(){
+  const el=$('#map'), slot=document.getElementById('mapSlot_m'), narrow=innerWidth<=900;
+  if(narrow&&slot&&el.parentNode!==slot){slot.innerHTML='<div class="sec"><b>4 · Hydrant map</b> <button class="btn small" id="zoomAddr2">Zoom to address &amp; hydrants</button></div>';slot.appendChild(el);
+    const z=document.getElementById('zoomAddr2'); if(z) z.onclick=()=>{const i=CUR_INC; i&&i._ll&&map.setView(i._ll,18)}}
+  else if(!narrow&&el.parentNode!==$('#tab-map')) $('#tab-map').appendChild(el);
+  if(map) setTimeout(()=>map.invalidateSize(),60);
+}
+let CUR_INC=null; addEventListener('resize',()=>{clearTimeout(placeMap._t);placeMap._t=setTimeout(placeMap,200)});
 /* ================= TABS ================= */
 function switchTab(t){document.querySelectorAll('nav button').forEach(b=>b.classList.toggle('active',b.dataset.tab===t));document.querySelectorAll('.tab').forEach(s=>s.classList.toggle('active',s.id==='tab-'+t));if(t==='map'&&map)setTimeout(()=>map.invalidateSize(),50);
   if(t==='alerts'){alertSig='';renderAlerts()} else {alertOpen=null;freeCanvases($('#alertList'));$('#alertList').innerHTML='';alertSig=''}}
