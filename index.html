@@ -1015,7 +1015,26 @@ function computeMatch(inc){
                       else if(r.map&&!isBoxId(r.map)) add({item:h,id:r.map,link:r.mapLink,name:r.complex,label:r.complex+' · '+r.map}); }
        else if(isDetailMap(r.map)) add({item:h,id:r.map,link:r.mapLink,label:'Detail '+r.map});
      });
-     res.details=list.slice(0,5);}
+     // detail / site sheets that print this exact house number (index row may not list them), plus their sub-sheets (29B -> 29B1)
+     const p0=parts.find(p=>p.num!=null);
+     if(p0&&st!=null){const tok=String(p0.num), words=stripSuffix(normStreet(p0.street)).split(' ').filter(w=>w.length>=4);
+       FILES.filter(f=>f.station===st&&f.items).forEach(f=>{const rps=routePageSet(f);
+         f.items.forEach((its,pi)=>{
+           if(list.length>=6||f.rows.some(r=>r.page===pi+1)||rps.has(pi)) return;
+           if(!its.some(i=>String(i[0]).replace(/\s/g,'')===tok)) return;
+           const T=String(f.pages[pi]||'').toUpperCase();
+           if((tok.length<4||p0.num%100===0)&&!words.some(w=>T.includes(w))) return; // short or round (block-label) numbers need the street name on the sheet too
+           if(its.filter(i=>/[A-Z]{4,}/i.test(i[0])).length>60) return; // a text page, not a map sheet
+           if(its.filter(i=>/^(MAP\s*)?\d{1,2}\s*-\s*\d{1,2}$/i.test(String(i[0]).trim())).length>=2) return; // a box map page ("16-3", "Map 16-07"), not a detail sheet
+           const sid=sheetId(f,pi)||('p'+(pi+1));
+           add({direct:{file:f,page:pi+1},id:sid,label:'Detail '+sid+' · shows '+tok});
+           its.map(i=>String(i[0]).trim().toUpperCase()).filter(t=>t!==sid&&t.startsWith(sid)&&/^\d{1,3}[A-Z]{1,2}\d{1,2}$/.test(t)).forEach(cid=>{
+             const cp=(f.items.findIndex((_,j)=>sheetId(f,j)===cid)+1)||titledPage(f,cid); if(cp&&cp!==pi+1) add({direct:{file:f,page:cp},id:cid,label:'Detail '+cid});
+           });
+         });
+       });
+     }
+     res.details=list.slice(0,6);}
     // pages that mention the street (for the "all pages" list)
     FILES.filter(f=>f.station===st&&f.kind!=='boxmap'&&f.kind!=='complex').forEach(f=>{
       f.pages.forEach((txt,i)=>{
@@ -1647,6 +1666,10 @@ async function putPage(el,p,scale,big,opts={}){
   el.appendChild(wrap);
 }
 // Map page / detail map: follow the index row's own hyperlink first, then fall back to searching the uploaded map PDFs
+function sheetId(f,pi){ // "29B" from a detail sheet's title block
+  const its=((f.items||[])[pi]||[]).map(a=>String(a[0]).trim().toUpperCase());
+  const ids=its.filter(t=>/^\d{1,3}[A-Z]{1,2}\d{0,2}$/.test(t)); return ids[0]||null;
+}
 function titledPage(f,id,only){ // detail sheets carry a "MAP 3E" title block; match by position on the page
   if(!f||!id) return null; const ID=String(id).replace(/\s/g,'').toUpperCase(), SH=detKey(id);
   const pages=only?[only]:f.pages.map((_,k)=>k+1);
@@ -1681,7 +1704,9 @@ async function fillCard(id,inc){
   const bm2=document.getElementById('bm2_'+id);
   if(bm2) await showLinkedPage(bm2,m.boxRow,m.boxRow.row.smapLink,[],'box map',null,inc);
   for(const [k,d] of (m.details||[]).entries()){const el=document.getElementById('cm_'+id+'_'+k);
-    if(el) await showLinkedPage(el,d.item,d.link,k===0?m.complexMap:[],'detail map',isDetailId(d.id)?d.id:null,inc)}
+    if(!el) continue;
+    if(d.direct){el.innerHTML='';await putPage(el,d.direct,1.6,true,{inc})}
+    else await showLinkedPage(el,d.item,d.link,k===0?m.complexMap:[],'detail map',isDetailId(d.id)?d.id:null,inc)}
   const rp=document.getElementById('rp_'+id);
   if(rp){const det=rp.closest('details');const load=async()=>{if(rp.dataset.done)return;rp.dataset.done=1;rp.innerHTML='';for(const p of (m.routePages||[]).slice(0,6)) await putPage(rp,p,0.5,false)};
     if(det){det.addEventListener('toggle',()=>{if(det.open)load();else{freeCanvases(rp);rp.innerHTML='';delete rp.dataset.done}})}}
