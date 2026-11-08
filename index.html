@@ -217,6 +217,13 @@ header{padding-top:max(18px,env(safe-area-inset-top))}
 @media (min-width:901px){#mapSide .card>h3{top:-16px}}
 @media (max-width:900px){#mapSide,#tab-map,#alertList{overflow:visible!important}}
 </style>
+<style>
+#mapSide .card>h3,#alertList .card>h3{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.h3a{flex:1;min-width:0}
+.amaps{flex:none;background:var(--accent);color:#fff!important;text-decoration:none;font:700 15px var(--sans);padding:9px 14px;border-radius:10px;white-space:nowrap}
+.btn.zbig{display:block;width:100%;font-size:18px;font-weight:700;padding:15px 12px;margin:6px 0 8px;border-radius:12px}
+@media (max-width:900px){.leaflet-touch .leaflet-bar a{width:48px;height:48px;line-height:48px;font-size:26px}}
+</style>
 <style id="theme">
 /* ===== Appearance: A · Clean Dark (dark mode) / C · Daylight (light mode) ===== */
 /* Option A — Clean Dark: flat graphite, red accent */
@@ -1568,10 +1575,12 @@ function routeBox(inc){
     ${start?`<div class="rbox-start">Start: <b>${esc(start)}</b></div>`:''}
     <ol>${steps.map(s=>`<li>${turn(s)}</li>`).join('')}</ol></div>`;
 }
+function appleMaps(inc){const q=inc._ll?inc._ll[0].toFixed(6)+','+inc._ll[1].toFixed(6):inc.address+', Montgomery County, MD';
+  return 'https://maps.apple.com/?daddr='+encodeURIComponent(q)+'&dirflg=d'+(inc._ll?'&q='+encodeURIComponent(inc.address):'')}
 function incidentCard(inc,id){
   const m=inc.match; const rt=m.routeText; const R=m.route;
   const hit=m.rows.filter(r=>r.hitBlock), rest=m.rows.filter(r=>!r.hitBlock);
-  return `<div class="card"><h3>${esc(inc.address)} ${matchBadge(m)}</h3>
+  return `<div class="card"><h3><span class="h3a">${esc(inc.address)} ${matchBadge(m)}</span><a class="amaps" href="${appleMaps(inc)}" target="_blank" rel="noopener"> Apple Maps</a></h3>
    <div class="small" style="margin-bottom:8px">${esc(inc.date)} · <b>${esc(inc.description)}</b> · Units: ${esc(inc.units)}</div>
    <div class="sec"><b>1 · Directions</b></div>
    <div id="dir_${id}"></div>
@@ -1582,7 +1591,7 @@ function incidentCard(inc,id){
    ${(m.details||[]).map((d,k)=>`<div class="sec"><b>3${k?String.fromCharCode(97+k):''} · Site / complex / detail map</b> <span class="pill ${/differs/.test(d.label)?'red':'amber'}">${esc(d.label)}</span></div><div id="cm_${id}_${k}" class="mapbox"></div>`).join('')}
    <div id="mapSlot_${id}" class="mapslot"></div>
    <div class="sec"><b>Links</b></div>
-   <div class="small"><a href="${mapLink(inc)}" target="_blank">ArcGIS (Fire Station Areas)</a> · <a href="https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(inc.address+', Montgomery County, MD')}" target="_blank">Google Maps</a> · Box ${esc(inc.box||'—')} → Station ${m.station??'?'} · Code ${esc(inc.code)}</div>
+   <div class="small"><a href="${appleMaps(inc)}" target="_blank" rel="noopener">Apple Maps</a> · <a href="${mapLink(inc)}" target="_blank">ArcGIS (Fire Station Areas)</a> · <a href="https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(inc.address+', Montgomery County, MD')}" target="_blank">Google Maps</a> · Box ${esc(inc.box||'—')} → Station ${m.station??'?'} · Code ${esc(inc.code)}</div>
    ${m.streetOnly.length?`<details class="small" style="margin-top:6px"><summary>Same street in other stations' files (${m.streetOnly.length})</summary>${idxTable(m.streetOnly)}</details>`:''}
    <details class="small" style="margin-top:6px"><summary>All pages mentioning this street (${(m.routePages||[]).length})</summary><div class="pages" id="rp_${id}"></div></details>
    <div style="margin-top:10px"><button class="btn primary" id="go_${id}">Show route on map</button></div></div>`;
@@ -1709,19 +1718,20 @@ async function showIncident(inc){
   switchTab('map'); setTimeout(()=>map.invalidateSize(),50);
   const side=$('#mapSide'); freeCanvases(side); CUR_INC=inc;
   if($('#map').parentNode!==$('#tab-map')) $('#tab-map').appendChild($('#map'));
-  side.innerHTML=incidentCard(inc,'m')+'<div style="margin-top:8px"><button class="btn small" id="zoomAddr">Zoom to address & hydrants</button></div>';
+  side.innerHTML=incidentCard(inc,'m')+'<div style="margin-top:8px"><button class="btn zbig" id="zoomAddr">🔍 Zoom to address &amp; hydrants</button></div>';
   fillCard('m',inc);
   placeMap();
   const gb=document.getElementById('go_m'); if(gb) gb.style.display='none';
   await drawRoute(inc);
   side.querySelectorAll('a[href^="'+ARC_VIEWER.slice(0,40)+'"]').forEach(a=>a.href=mapLink(inc));
+  side.querySelectorAll('a[href^="https://maps.apple.com"]').forEach(a=>a.href=appleMaps(inc));
   $('#zoomAddr').onclick=()=>inc._ll&&map.setView(inc._ll,18);
 }
 
 // Phone: the live hydrant/route map sits in the call view under the box and detail maps
 function placeMap(){
   const el=$('#map'), slot=document.getElementById('mapSlot_m'), narrow=innerWidth<=900;
-  if(narrow&&slot&&el.parentNode!==slot){slot.innerHTML='<div class="sec"><b>4 · Hydrant map</b> <button class="btn small" id="zoomAddr2">Zoom to address &amp; hydrants</button></div>';slot.appendChild(el);
+  if(narrow&&slot&&el.parentNode!==slot){slot.innerHTML='<div class="sec"><b>4 · Hydrant map</b></div><button class="btn zbig" id="zoomAddr2">🔍 Zoom to address &amp; hydrants</button>';slot.appendChild(el);
     const z=document.getElementById('zoomAddr2'); if(z) z.onclick=()=>{const i=CUR_INC; i&&i._ll&&map.setView(i._ll,18)}}
   else if(!narrow&&el.parentNode!==$('#tab-map')) $('#tab-map').appendChild(el);
   if(map) setTimeout(()=>map.invalidateSize(),60);
