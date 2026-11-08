@@ -224,6 +224,13 @@ header{padding-top:max(18px,env(safe-area-inset-top))}
 .btn.zbig{display:block;width:100%;font-size:18px;font-weight:700;padding:15px 12px;margin:6px 0 8px;border-radius:12px}
 @media (max-width:900px){.leaflet-touch .leaflet-bar a{width:48px;height:48px;line-height:48px;font-size:26px}}
 </style>
+<style>
+.pw{position:relative}
+.cpin{position:absolute;width:0;height:0;pointer-events:none;z-index:5}
+.cpin b{position:absolute;left:0;top:0;transform:translate(-50%,-92%);font-size:34px;line-height:1;filter:drop-shadow(0 2px 2px rgba(0,0,0,.5))}
+.cpin i{position:absolute;left:-26px;top:-26px;width:52px;height:52px;border-radius:50%;border:4px solid #e5343f;background:rgba(229,52,63,.18);animation:cpin 1.6s ease-out infinite}
+@keyframes cpin{0%{transform:scale(.4);opacity:1}100%{transform:scale(1.4);opacity:0}}
+</style>
 <style id="theme">
 /* ===== Appearance: A · Clean Dark (dark mode) / C · Daylight (light mode) ===== */
 /* Option A — Clean Dark: flat graphite, red accent */
@@ -829,6 +836,26 @@ $('#fileInput').addEventListener('change',e=>{addFiles([...e.target.files]);e.ta
 const pdfCache=new Map();
 async function getPdf(f){if(!pdfCache.has(f.id))pdfCache.set(f.id,pdfjsLib.getDocument({data:f.data.slice(0),standardFontDataUrl:PDF_FONTS}).promise);return pdfCache.get(f.id)}
 // opts: {rects:[[x1,y1,x2,y2]...] yellow highlight, band:[x1,y1,x2,y2] red outline, crop:[x1,y1,x2,y2], links:true}
+// Rough call location on a map sheet: the house-number label closest to the call's number, favouring labels near the street name
+function findPin(f,pageNo,inc){
+  if(!f||!inc||!f.items) return null; const items=(f.items[pageNo-1]||[]);
+  const parts=parseAddress(inc.address).filter(p=>p.street); if(!parts.length) return null;
+  let best=null;
+  parts.forEach(p=>{
+    const words=stripSuffix(normStreet(p.street)).split(' ').filter(w=>w.length>=4&&!/^\d/.test(w));
+    const labels=items.filter(i=>{const t=String(i[0]).toUpperCase();return words.some(w=>t.includes(w))});
+    const near=i=>labels.length?Math.min(...labels.map(l=>Math.hypot(l[1]-i[1],l[2]-i[2]))):null;
+    if(p.num!=null) items.forEach(i=>{
+      const m=String(i[0]).trim().match(/^(\d{1,5})(?:\s*[-–]\s*\d{3,5})?$/); if(!m) return;
+      const v=+m[1], dv=Math.abs(v-p.num); if(m[1].length<3&&dv) return; if(dv>(p.num<1000?60:400)) return;
+      const d=near(i); if(d!=null&&d>320&&dv>0) return; // a close number on some other street
+      const sc=dv+(d!=null?Math.min(d,320)*0.4:60)+((v%2)!==(p.num%2)?15:0);
+      if(!best||sc<best.sc) best={sc,x:i[1],y:i[2],w:i[3]||20,h:i[4]||8,txt:String(i[0]).trim(),exact:dv===0,street:p.street};
+    });
+    if(!best&&labels.length){const l=labels.sort((a,b)=>(b[4]||0)-(a[4]||0))[0];best={sc:999,x:l[1],y:l[2],w:l[3]||30,h:l[4]||8,txt:String(l[0]).trim(),street:p.street,onStreet:true}}
+  });
+  return best;
+}
 async function renderPageEl(f,pageNo,scale=1.4,opts={}){
   const c=document.createElement('canvas'); let conv;
   if(f.mime.startsWith('image/')){
@@ -852,6 +879,10 @@ async function renderPageEl(f,pageNo,scale=1.4,opts={}){
     const wrap=document.createElement('div');wrap.className='pw';wrap.appendChild(o);return wrap;
   }
   const wrap=document.createElement('div');wrap.className='pw';wrap.appendChild(c);
+  if(opts.pin){const P=opts.pin;const [a,b,cc,d]=conv([P.x,P.y,P.x+P.w,P.y+P.h]);
+    const pin=document.createElement('div');pin.className='cpin';pin.title='Approximate call location (near label '+P.txt+')';
+    pin.style.left=((a+cc)/2)/c.width*100+'%'; pin.style.top=((b+d)/2)/c.height*100+'%';
+    pin.innerHTML='<i></i><b>📍</b>'; wrap.appendChild(pin)}
   if(opts.links!==false){
     ((f.links||[])[pageNo-1]||[]).forEach(l=>{
       const [a,b,cc,d]=conv(l.rect); const el=document.createElement('a');el.className='plink';el.href='#';
@@ -1602,11 +1633,12 @@ function fitScale(el,f,page,maxPx=1300){ // draw page images at screen size, not
   return Math.max(0.6,Math.min(maxPx,cw)/w);
 }
 async function putPage(el,p,scale,big,opts={}){
+  if(opts.inc&&!opts.crop){const pin=findPin(p.file,p.page,opts.inc);if(pin)opts={...opts,pin};delete opts.inc}
   if(big&&!opts.crop) scale=fitScale(el,p.file,p.page);
   const wrap=document.createElement('div'); if(!big) wrap.style.maxWidth='300px';
-  try{const c=await renderPageEl(p.file,p.page,scale,opts); c.onclick=()=>openPage(p.file.id,p.page,opts.crop?{rects:opts.rects,band:opts.band}:{}); c.style.cursor='zoom-in'; wrap.appendChild(c)}
+  try{const c=await renderPageEl(p.file,p.page,scale,opts); c.onclick=()=>openPage(p.file.id,p.page,opts.crop?{rects:opts.rects,band:opts.band}:(opts.pin?{pin:opts.pin}:{})); c.style.cursor='zoom-in'; wrap.appendChild(c)}
   catch(e){console.error(e);const b=document.createElement('button');b.className='btn small';b.textContent='Open page';b.onclick=()=>openPage(p.file.id,p.page);wrap.appendChild(b)}
-  if(!opts.crop){const cap=document.createElement('div');cap.className='small muted';cap.textContent=`${p.file.name} p${p.page} — click to enlarge · blue boxes are links`;wrap.appendChild(cap)}
+  if(!opts.crop){const cap=document.createElement('div');cap.className='small muted';cap.textContent=(opts.pin?`📍 ${opts.pin.onStreet?'On '+opts.pin.street+' (no house number found)':opts.pin.exact?'At '+opts.pin.txt:'Rough location, near '+opts.pin.txt} · `:'')+`${p.file.name} p${p.page} — tap to enlarge · blue boxes are links`;wrap.appendChild(cap)}
   el.appendChild(wrap);
 }
 // Map page / detail map: follow the index row's own hyperlink first, then fall back to searching the uploaded map PDFs
@@ -1623,7 +1655,7 @@ function titledPage(f,id,only){ // detail sheets carry a "MAP 3E" title block; m
   }
   return null;
 }
-async function showLinkedPage(el,item,link,fallback,what,detailId){
+async function showLinkedPage(el,item,link,fallback,what,detailId,inc){
   el.innerHTML='';
   let target=null, note='';
   if(item&&link){const r=await resolveLink(item.file,item.row.page,link);
@@ -1632,7 +1664,7 @@ async function showLinkedPage(el,item,link,fallback,what,detailId){
     else if(r&&r.missing) note=`The index links this to “${esc(r.missing)}”, which isn’t loaded. `;
     else if(r&&r.url) note=`Linked to <a href="${esc(r.url)}" target="_blank">${esc(r.url)}</a>. `}
   if(!target&&fallback&&fallback[0]) target=fallback[0];
-  if(target) await putPage(el,target,1.6,true);
+  if(target) await putPage(el,target,1.6,true,{inc});
   else el.innerHTML=`<div class="muted small">${note}No ${what} page found. Add the map PDFs on Files &amp; Stations.</div>`;
   if(target&&note) el.insertAdjacentHTML('afterbegin',`<div class="small muted">${note}Showing best match instead.</div>`);
 }
@@ -1640,11 +1672,11 @@ async function fillCard(id,inc){
   const m=inc.match;
   fillDirections(document.getElementById('dir_'+id),inc);
   const bm=document.getElementById('bm_'+id);
-  if(bm) await showLinkedPage(bm,m.boxRow,m.boxRow&&m.boxRow.row.mapLink,m.boxMap,'map');
+  if(bm) await showLinkedPage(bm,m.boxRow,m.boxRow&&m.boxRow.row.mapLink,m.boxMap,'map',null,inc);
   const bm2=document.getElementById('bm2_'+id);
-  if(bm2) await showLinkedPage(bm2,m.boxRow,m.boxRow.row.smapLink,[],'box map');
+  if(bm2) await showLinkedPage(bm2,m.boxRow,m.boxRow.row.smapLink,[],'box map',null,inc);
   for(const [k,d] of (m.details||[]).entries()){const el=document.getElementById('cm_'+id+'_'+k);
-    if(el) await showLinkedPage(el,d.item,d.link,k===0?m.complexMap:[],'detail map',isDetailId(d.id)?d.id:null)}
+    if(el) await showLinkedPage(el,d.item,d.link,k===0?m.complexMap:[],'detail map',isDetailId(d.id)?d.id:null,inc)}
   const rp=document.getElementById('rp_'+id);
   if(rp){const det=rp.closest('details');const load=async()=>{if(rp.dataset.done)return;rp.dataset.done=1;rp.innerHTML='';for(const p of (m.routePages||[]).slice(0,6)) await putPage(rp,p,0.5,false)};
     if(det){det.addEventListener('toggle',()=>{if(det.open)load();else{freeCanvases(rp);rp.innerHTML='';delete rp.dataset.done}})}}
