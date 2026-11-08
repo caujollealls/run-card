@@ -1,0 +1,1624 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Run Card">
+<meta name="theme-color" content="#0a1433">
+<title>Run Card</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@500;700&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+:root{--bg1:#0a1433;--bg2:#1a3484;--panel:rgba(255,255,255,.055);--line:rgba(160,190,255,.18);--text:#eef2ff;--mute:#9fb0dd;
+  --red:#ff4d5e;--amber:#f5c84b;--green:#3ddc84;--blue:#4c8dff;--pink:#ff6f8e;--mono:'IBM Plex Mono',ui-monospace,Menlo,Consolas,monospace;--sans:'IBM Plex Sans',-apple-system,'Segoe UI',Roboto,Arial,sans-serif}
+*{box-sizing:border-box}
+button,input,select{font-family:var(--sans)}
+html,body{min-height:100%}
+body{margin:0;color:var(--text);font:15px/1.4 'IBM Plex Sans',-apple-system,Segoe UI,Roboto,Arial,sans-serif;
+  background:radial-gradient(1200px 700px at 75% 15%,#2a4fb8 0%,transparent 60%),linear-gradient(160deg,var(--bg1) 0%,#122463 45%,var(--bg2) 100%) fixed}
+header{display:flex;align-items:center;gap:16px;padding:18px 28px 6px;flex-wrap:wrap}
+.brand{display:flex;align-items:center;gap:12px}
+.brand svg{width:44px;height:52px;flex:none}
+.brand .kicker{font:700 12px var(--mono);letter-spacing:2px;color:#ff8a5c;text-transform:uppercase}
+.brand h1{margin:0;font-size:30px;font-weight:700;letter-spacing:-.3px;line-height:1}
+.hdr-right{margin-left:auto;display:flex;align-items:center;gap:18px}
+#clock{font:700 40px var(--mono);letter-spacing:1px}
+#status{font:600 15px var(--mono);color:var(--text);display:flex;align-items:center;gap:6px}
+.ridechip{font:700 13px var(--mono);padding:5px 10px;border-radius:8px;cursor:pointer;white-space:nowrap;border:1.5px solid var(--line);background:transparent;color:var(--text)}
+.ridechip.on{background:var(--pink);border-color:var(--pink);color:#fff}.ridechip.off{color:#cfd8f5}
+.uchip{font:700 13px var(--mono);padding:5px 10px;border-radius:8px;border:1.5px solid var(--line);background:rgba(255,255,255,.05);color:var(--text);cursor:pointer}
+.uchip.sel{background:var(--pink);border-color:var(--pink);color:#fff;cursor:default}.uchip.sel button{background:none;border:none;color:#fff;font-size:15px;cursor:pointer;padding:0 0 0 4px}
+.myunit{background:var(--pink);color:#fff;border-radius:5px;padding:0 5px}
+tr.mine td:first-child{box-shadow:inset 4px 0 0 var(--pink)}tr.mine td{background:rgba(255,111,142,.10)}
+.geo{font:600 13px var(--mono);padding:4px 9px;border-radius:8px;border:1.5px solid var(--line);white-space:nowrap}
+.geo.ok{color:var(--green);border-color:rgba(61,220,132,.5)}.geo.off{color:var(--amber);border-color:rgba(245,200,75,.5)}
+.rt-d{font:600 13px var(--mono);color:#777;margin-left:6px}
+.rt-dir.S{background:#555}.rt-dir.A{background:#1a8a4a}
+.rbox-note{font-size:12px;color:#666;margin-top:6px}
+.rbox .btn.small{background:#fff;color:#333;border-color:#ccc;margin-left:6px}
+#status .dot{width:11px;height:11px;border-radius:50%;background:#777}
+#status.ok .dot{background:var(--green);box-shadow:0 0 8px var(--green)} #status.err .dot{background:var(--red);box-shadow:0 0 8px var(--red)}
+#status.err #statusText{color:var(--red)}
+.home{display:flex;align-items:center;gap:8px;font-weight:700;font-size:18px}
+.home .av{width:34px;height:34px;border-radius:50%;background:var(--amber);color:#1a1a1a;display:grid;place-items:center;font:700 15px var(--mono)}
+.home select{background:transparent;border:none;color:var(--text);font:700 18px var(--sans);cursor:pointer;padding:0}
+.home select option{color:#111}
+nav{display:flex;gap:6px;padding:4px 22px 0;flex-wrap:wrap;border-bottom:1px solid var(--line)}
+nav button{background:none;border:2px solid transparent;color:#cfe0ff;font:600 16px var(--sans);padding:8px 14px;margin-bottom:10px;border-radius:9px;cursor:pointer}
+nav button:hover{color:#fff}
+nav button.active{border-color:var(--blue);color:#fff;background:rgba(76,141,255,.08)}
+.armbar{display:flex;align-items:center;gap:12px;margin:14px 0 14px}
+#enableAlerts{background:var(--amber);color:#1a1a1a;border:none;border-radius:9px;padding:9px 16px;font:600 15px var(--sans);cursor:pointer}
+#enableAlerts.off{background:transparent;color:var(--amber);border:2px solid var(--amber)}
+.armbar span{color:#dbe5ff;font-size:14px}
+.tab{display:none;padding:4px 28px 24px}
+.tab.active{display:block}
+#tab-map.active{display:flex;padding:0;height:calc(100vh - 150px)}
+#tab-index{padding-top:16px}
+.toolbar{display:flex;gap:10px;margin-bottom:6px;flex-wrap:wrap}
+.toolbar input{flex:1;min-width:220px}
+input[type=text],select{background:rgba(255,255,255,.04);color:var(--text);border:1.5px solid var(--line);border-radius:10px;padding:11px 14px;font:15px var(--sans)}
+input[type=text]::placeholder{color:#8ea3d6}
+input[type=text]:focus{outline:none;border-color:var(--blue)}
+.btn{background:rgba(255,255,255,.06);color:var(--text);border:1.5px solid var(--line);padding:8px 14px;border-radius:10px;cursor:pointer;font:600 14px var(--sans)}
+.btn:hover{border-color:var(--blue)}
+.btn.primary{background:var(--blue);border-color:var(--blue)}
+.btn.route{font:700 18px var(--sans);padding:10px 24px}
+.btn.small{padding:4px 9px;font-size:12px;border-radius:7px}
+table{border-collapse:collapse;width:100%}
+th,td{border-bottom:1px solid var(--line);padding:9px 10px;text-align:left;vertical-align:top}
+th{color:#bcd0ff;font-weight:600;font-size:14px;border-bottom:1.5px solid rgba(160,190,255,.35)}
+/* board */
+#cadTable td{padding:12px 10px}
+#cadTable .dt{font:500 15px var(--mono);white-space:nowrap;color:#e2e9ff}
+#cadTable .addr{font-weight:700;font-size:16px}
+#cadTable .mapno{font:700 13px var(--mono);color:var(--amber);margin-top:2px}
+#cadTable .desc{font-weight:600}
+#cadTable .code{font:500 12px var(--mono);color:var(--mute);margin-left:6px}
+#cadTable .units{font:700 15px var(--mono);color:var(--pink);word-spacing:6px}
+#cadTable .box{text-align:right;font:700 21px var(--mono);white-space:nowrap}
+#cadTable .box small{display:block;font:600 14px var(--mono);color:var(--mute)}
+#cadTable th:last-child{text-align:right}
+tr.match td{background:rgba(255,77,94,.13)}
+tr.match td:first-child{box-shadow:inset 4px 0 0 var(--red)}
+tr.match.new td{animation:flash 1s 4}
+@keyframes flash{50%{background:rgba(255,77,94,.45)}}
+tr.clickable{cursor:pointer} tr.clickable:hover td{background:rgba(76,141,255,.12)}
+tr.hidden{display:none}
+.pill{display:inline-block;padding:1px 8px;border-radius:10px;font:600 11px var(--mono);background:rgba(255,255,255,.1);color:var(--mute);margin-left:4px;vertical-align:middle}
+.pill.red{background:var(--red);color:#fff}.pill.amber{background:var(--amber);color:#111}.pill.green{background:var(--green);color:#0b2a17}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:16px;margin-bottom:14px;backdrop-filter:blur(4px)}
+.card h3{margin:0 0 10px;font-size:16px}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(118px,1fr));gap:7px}
+.grid label{background:rgba(255,255,255,.04);border:1.5px solid var(--line);border-radius:9px;padding:7px 9px;cursor:pointer;user-select:none;font-size:14px}
+.grid label.has{border-color:var(--blue)}
+.muted{color:var(--mute)} .small{font-size:13px}
+#drop{border:2px dashed var(--line);border-radius:14px;padding:26px;text-align:center;color:var(--mute)}
+#drop.over{border-color:var(--blue);color:var(--text)}
+#alertBanner{position:fixed;right:18px;bottom:18px;z-index:5000;display:flex;flex-direction:column;gap:8px;width:390px;max-width:calc(100vw - 36px)}
+.toast{background:linear-gradient(160deg,#3a0f1d,#1d0b2b);border:2px solid var(--red);border-radius:14px;padding:10px 13px;font-size:14px;box-shadow:0 10px 30px rgba(0,0,0,.5);cursor:pointer}
+.toast b{font-size:16px}
+.toast .rt{color:var(--amber);display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden;margin:3px 0}
+.toast .x{float:right;background:none;border:none;color:#fff;font-size:18px;cursor:pointer;margin:-4px -4px 0 6px}
+.routecrop{max-width:860px}.mapbox{max-width:1100px}
+#mapSide table td:last-child,#mapSide table th:last-child{display:none}
+#mapSide table{font-size:13px}
+#mapSide{width:440px;max-width:48vw;overflow:auto;border-right:1px solid var(--line);padding:16px;background:rgba(8,16,44,.65)}
+#map{flex:1}
+.steps li{margin-bottom:4px}
+.pages{display:flex;flex-wrap:wrap;gap:8px}
+.pages canvas,.pages img{max-width:100%;border:1px solid var(--line);background:#fff;cursor:zoom-in}
+.excerpt{white-space:pre-wrap;font:12px var(--mono);background:rgba(0,0,0,.25);border:1px solid var(--line);border-radius:8px;padding:8px;max-height:260px;overflow:auto}
+mark{background:var(--amber);color:#111;padding:0 2px}
+#viewer{position:fixed;inset:0;background:rgba(5,10,30,.92);z-index:6000;display:none;overflow:auto;padding:20px;text-align:center}
+#viewer canvas,#viewer img{max-width:100%;background:#fff}
+.sec{margin:16px 0 8px;padding-top:10px;border-top:1px solid var(--line);font:700 13px var(--mono);letter-spacing:1px;text-transform:uppercase;color:#bcd0ff}
+.rbox{background:#fffdf3;color:#111;border:3px solid var(--amber);border-radius:14px;padding:14px 18px;margin:6px 0 12px;max-width:860px}
+.rbox-h{display:flex;justify-content:space-between;align-items:baseline;gap:10px;flex-wrap:wrap;font:700 20px var(--sans);border-bottom:1.5px solid #e6dcb8;padding-bottom:6px;margin-bottom:8px}
+.rbox-h small{font:700 14px var(--mono);color:#7a5b00}
+.rbox-start{font-size:17px;margin-bottom:6px;color:#333}
+.rbox ol{margin:0;padding-left:30px;font:600 22px/1.45 var(--sans)}
+.rbox li{padding:2px 0}
+.rbox li::marker{color:#999;font-weight:700}
+.rt-dir{display:inline-block;min-width:74px;font:800 16px var(--mono);padding:1px 8px;margin-right:10px;border-radius:6px;color:#fff;text-align:center;vertical-align:2px}
+.rt-dir.L{background:#1f5bd6}.rt-dir.R{background:#c8202f}
+.rt-word{display:inline-block;min-width:74px;margin-right:10px}
+#mapSide .rbox ol{font-size:19px}#mapSide .rt-dir,#mapSide .rt-word{min-width:62px}
+.route{background:rgba(245,200,75,.1);border:1.5px solid var(--amber);border-radius:10px;padding:10px 12px;font-size:15px;line-height:1.5}
+a{color:#8fb6ff}
+.leaflet-container{background:#0a1433}
+.pw{position:relative;display:inline-block;max-width:100%;line-height:0}
+.pw canvas{max-width:100%}
+.mapbox .pw,.routecrop .pw{display:block}.mapbox .pw canvas,.routecrop .pw canvas{width:100%}
+a.plink{position:absolute;border:1.5px solid rgba(58,134,255,.8);background:rgba(58,134,255,.12);border-radius:2px}
+a.plink:hover{background:rgba(58,134,255,.35)}
+.routecrop canvas{border:2px solid #e00000;border-radius:4px;background:#fff;cursor:zoom-in}
+a.cell{color:#7fb2ff;text-decoration:underline;cursor:pointer}
+.sec{margin:14px 0 6px;padding-top:8px;border-top:1px solid var(--line);font-size:13px;text-transform:uppercase;letter-spacing:.4px}
+.route{background:#2a1f05;border:1px solid var(--amber);border-radius:6px;padding:9px 11px;font-size:15px;line-height:1.5}
+.mapbox canvas,.mapbox img{width:100%;border:1px solid var(--line);background:#fff;cursor:zoom-in}
+/* ---------- iPhone / narrow screens ---------- */
+header{padding-top:max(18px,env(safe-area-inset-top))}
+@media (max-width:700px){
+  header{padding:max(10px,env(safe-area-inset-top)) 12px 4px;gap:8px}
+  .brand svg{width:30px;height:36px}.brand h1{font-size:22px}.brand .kicker{font-size:10px}
+  .hdr-right{width:100%;margin-left:0;justify-content:space-between;gap:8px;flex-wrap:wrap}
+  #clock{font-size:24px}#status{font-size:13px}.geo,.ridechip{font-size:11px;padding:4px 7px}
+  .home{font-size:15px}.home .av{width:28px;height:28px;font-size:13px}.home select{font-size:15px}
+  nav{padding:2px 8px 0;flex-wrap:nowrap;overflow-x:auto;-webkit-overflow-scrolling:touch;scrollbar-width:none}
+  nav::-webkit-scrollbar{display:none}
+  nav button{font-size:15px;padding:7px 11px;white-space:nowrap;margin-bottom:8px}
+  .tab{padding:4px 10px calc(20px + env(safe-area-inset-bottom))}
+  .armbar{flex-direction:column;align-items:stretch;gap:6px}.armbar span{font-size:12px}
+  .toolbar{flex-direction:column}.toolbar input{min-width:0}.btn.route{width:100%}
+  /* board rows become cards */
+  #cadTable thead{display:none}
+  #cadTable,#cadTable tbody,#cadTable tr{display:block;width:100%}
+  #cadTable tr{display:grid;grid-template-columns:1fr auto;grid-template-areas:"addr box" "desc box" "units units" "dt dt";gap:2px 10px;padding:12px 10px;border-bottom:1px solid var(--line)}
+  #cadTable td{display:block;border:none;padding:0!important;background:none!important}
+  #cadTable tr.match,#cadTable tr.mine{background:rgba(255,77,94,.13)}
+  #cadTable tr.mine{background:rgba(255,111,142,.12)}
+  #cadTable td:nth-child(1){grid-area:dt;font-size:12px;color:var(--mute)}
+  #cadTable td:nth-child(2){grid-area:addr}#cadTable td:nth-child(3){grid-area:desc;font-size:13px}
+  #cadTable td:nth-child(4){grid-area:units;font-size:13px}#cadTable td:nth-child(5){grid-area:box;font-size:19px}
+  tr.match td:first-child,tr.mine td:first-child{box-shadow:none!important}
+  #cadTable tr.match{box-shadow:inset 4px 0 0 var(--red)}#cadTable tr.mine{box-shadow:inset 4px 0 0 var(--pink)}
+  #tab-map.active{flex-direction:column;height:auto}
+  #map{flex:none;height:52vh;min-height:300px;order:-1}#mapSide{width:auto;max-width:none;border-right:none;padding:10px}
+  .rbox{padding:12px}.rbox ol{font-size:19px;padding-left:24px}.rbox-h{font-size:17px}
+  .rt-dir{min-width:62px;font-size:13px}
+  #alertBanner{left:10px;right:10px;bottom:calc(10px + env(safe-area-inset-bottom));width:auto}
+  .card{padding:12px;border-radius:12px}
+  table{font-size:13px}
+}
+@media (max-width:900px){header{padding:12px 14px}#clock{font-size:28px}.tab{padding:4px 12px 20px}#tab-map.active{flex-direction:column;height:auto}#mapSide{width:auto;max-width:none}#map{height:70vh}}
+</style>
+</head>
+<body>
+<header>
+  <div class="brand">
+    <svg viewBox="0 0 44 52" aria-hidden="true"><rect x="1" y="1" width="42" height="50" rx="9" fill="#c8202f"/><path d="M22 9c2 7 9 10 9 19a9 9 0 0 1-18 0c0-5 3-8 5-10 0 4 2 6 4 6-1-6 0-11 0-15z" fill="#fff"/><path d="M22 30c1.5 2.5 4 3.5 4 6.5a4 4 0 0 1-8 0c0-2 1-3.2 2-4 .3 1.2 1 2 2 2-.3-2 .2-3.5 0-4.5z" fill="#ffb03a"/></svg>
+    <div><div class="kicker">MoCo Fire</div><h1>Run Card</h1></div>
+  </div>
+  <div class="hdr-right">
+    <span id="clock">--:--:--</span>
+    <span id="status"><span class="dot"></span><span id="statusText">connecting</span></span>
+    <span id="geoStat" class="geo off">📍 locating…</span>
+    <button id="rideChip" class="ridechip off" title="Click to turn apparatus-only alerts on/off">🚒 Set apparatus</button>
+    <label class="home" title="Home station (used for address lookups)"><span class="av" id="homeAv">19</span><select id="homeSt"></select></label>
+  </div>
+</header>
+<nav>
+  <button data-tab="cad" class="active">Board</button>
+  <button data-tab="alerts">Alerts <span class="pill" id="alertCount">0</span></button>
+  <button data-tab="notify">Notify</button>
+  <button data-tab="files">Stations</button>
+  <button data-tab="map">Maps</button>
+  <button data-tab="index">Street index</button>
+</nav>
+
+<!-- BOARD -->
+<section class="tab active" id="tab-cad">
+  <div class="armbar"><button id="enableAlerts" class="off">Arm alerts</button><span id="armText">Click to arm — a matching call then plays its tone on this device while Run Card is open.</span></div>
+  <div class="toolbar">
+    <input type="text" id="boardFilter" placeholder="Filter the board" autocomplete="off">
+    <input type="text" id="lookupAddr" placeholder="Look up an address" autocomplete="off" style="flex:1.3">
+    <button class="btn route" id="lookupBtn">Route</button>
+  </div>
+  <table id="cadTable"><thead><tr><th>Date</th><th>Address</th><th>Description</th><th>Units</th><th>Box</th></tr></thead><tbody></tbody></table>
+  <div class="small muted" style="margin-top:10px">Live from <a href="https://cad.sta03.org/" target="_blank">cad.sta03.org</a> · refreshes every 2 s · red rows match your running-route books (street + block + box station)</div>
+</section>
+
+<!-- ALERTS -->
+<section class="tab" id="tab-alerts">
+  <div id="alertList" style="margin-top:14px"><div class="muted">No matched incidents yet. Load the company mapbooks under <b>Stations</b>.</div></div>
+</section>
+
+<!-- NOTIFY -->
+<section class="tab" id="tab-notify">
+  <div class="card" id="poBox" style="margin-top:14px">
+    <h3>Locked-phone alerts (Pushover watcher)</h3>
+    <div class="small muted" style="margin-bottom:8px">Your watcher sends a Pushover alert whenever your apparatus is dispatched, even with the phone locked. Your unit list and the on/off toggle below sync to it automatically.</div>
+    <div style="display:grid;gap:8px;max-width:520px">
+      <input type="text" id="poUrl" placeholder="Watcher address, e.g. https://runcard-watcher.you.workers.dev" autocomplete="off" autocapitalize="off">
+      <input type="text" id="poKey" placeholder="Watcher passphrase (SET_KEY)" autocomplete="off" autocapitalize="off">
+      <div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn small" id="poSave">Save &amp; sync units</button><button class="btn small" id="poTest">Send test alert</button><button class="btn small" id="poStatus">Watcher status</button></div>
+      <div id="poMsg" class="small muted"></div>
+    </div>
+  </div>
+  <div class="card" id="rideBox">
+    <h3>Apparatus I'm riding</h3>
+    <label style="display:flex;align-items:center;gap:10px;font-size:16px;margin-bottom:12px"><input type="checkbox" id="rideOn" style="width:22px;height:22px"> <b>Only alert when my apparatus is dispatched</b></label>
+    <div class="small muted" style="margin-bottom:6px">My units (alerts fire when any of these appear in the Units column):</div>
+    <div id="rideSel" style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px"></div>
+    <div class="small muted" style="margin-bottom:6px">Add — suggestions for your home station and units seen on the board:</div>
+    <div id="rideSug" style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px"></div>
+    <div style="display:flex;gap:8px"><input type="text" id="rideAdd" placeholder="Other unit, e.g. T725" style="max-width:220px"><button class="btn small" id="rideAddBtn">Add</button></div>
+    <div class="small muted" style="margin-top:10px">With this on, any call with your unit alerts — even outside the loaded books — and the directions box routes you there. Off = alert on running-route book matches as before.</div>
+  </div>
+  <div class="card" style="margin-top:14px">
+    <h3>Alert options</h3>
+    <div style="display:grid;gap:10px">
+      <label><input type="checkbox" id="optSound" checked> Play tone</label>
+      <label><input type="checkbox" id="optWake"> Keep screen on while Run Card is open (rig mount)</label>
+      <label><input type="checkbox" id="optStartup"> Alert for calls already on the board when Run Card opens</label>
+      <label><input type="checkbox" id="optStreetOnly"> Also alert when the street matches but the box station has no book loaded</label>
+    </div>
+    <div class="small muted" style="margin-top:12px">Notifications need permission — tap <b>Arm alerts</b> on the Board. On iPhone, Run Card must be added to the Home Screen and open on screen to alert by itself; for alerts on a locked phone, use the Pushover watcher.</div>
+  </div>
+</section>
+
+<!-- MAPS -->
+<section class="tab" id="tab-map">
+  <div id="mapSide"><div class="muted">Pick a call on the Board or Alerts, or look up an address, to route from the first-due station.</div></div>
+  <div id="map"></div>
+</section>
+
+<!-- STATIONS -->
+<section class="tab" id="tab-files">
+  <div class="card" style="margin-top:14px">
+    <h3>Add company mapbooks / running routes</h3>
+    <div id="drop">Drop PDFs or images here, or <label class="btn small" style="display:inline-block">choose files<input type="file" id="fileInput" multiple accept=".pdf,image/*" hidden></label><br><span class="small">Each file is assigned to a station (auto-detected; change it below). Street index updates automatically. Re-adding a file with the same name replaces the old version.</span></div>
+    <div id="parseLog" class="small muted" style="margin-top:8px"></div>
+  </div>
+  <div class="card">
+    <h3>Stations viewed <span class="muted small">— alerts, street index and matching use checked stations only</span></h3>
+    <div style="margin-bottom:10px;display:flex;gap:6px;flex-wrap:wrap"><button class="btn small" id="selAll">Select all</button><button class="btn small" id="selNone">Deselect all</button><button class="btn small" id="selHas">Only stations with books</button></div>
+    <div class="grid" id="stationGrid"></div>
+  </div>
+  <div class="card">
+    <h3>Loaded books</h3>
+    <table id="fileTable"><thead><tr><th>File</th><th>Station</th><th>Type</th><th>Pages</th><th>Index rows</th><th></th></tr></thead><tbody></tbody></table>
+  </div>
+</section>
+
+<!-- STREET INDEX -->
+<section class="tab" id="tab-index">
+  <div style="display:flex;gap:8px;align-items:center;margin-bottom:10px;flex-wrap:wrap">
+    <input type="text" id="idxSearch" placeholder="Type letters of a street… (e.g. east w, gra)" style="flex:1;min-width:220px" autocomplete="off">
+    <span class="muted small" id="idxCount"></span>
+  </div>
+  <div id="idxOut"></div>
+</section>
+
+<div id="alertBanner"></div>
+<div id="viewer"></div>
+
+<script>
+/* ================= CONFIG ================= */
+const CAD_URL = 'https://cad.sta03.org/get_table';
+const POLL_MS = 2000;
+const GIS = 'https://gis3.montgomerycountymd.gov/arcgis/rest/services/';
+const L_AREAS = GIS + 'GDX/fire_station_area/FeatureServer/0';   // item 3760f05782a740b39ba31377cee4b731
+const L_STATIONS = GIS + 'GDX/fire_station_pts/FeatureServer/0';
+const L_HYDRANTS = GIS + 'general/hydrants/FeatureServer/0';
+const ARC_VIEWER = 'https://www.arcgis.com/apps/mapviewer/index.html?panel=gallery&layers=3760f05782a740b39ba31377cee4b731&catalog=02f2c10cda1c450ea7d905b2338f53f4';
+const MOCO_EXTENT = '-77.53,38.93,-76.88,39.36';
+const NSTATIONS = 40;
+const PDFJS_WORKER = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+const PDF_FONTS = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/standard_fonts/';
+const TESSERACT = 'https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js';
+
+/* ================= UTIL ================= */
+const $ = s => document.querySelector(s);
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const LS = {get(k,d){try{const v=localStorage.getItem(k);return v==null?d:JSON.parse(v)}catch(e){return d}}, set(k,v){try{localStorage.setItem(k,JSON.stringify(v))}catch(e){}}};
+function loadScript(src){return new Promise((res,rej)=>{const s=document.createElement('script');s.src=src;s.onload=res;s.onerror=rej;document.head.appendChild(s)})}
+let jsonpN=0;
+function jsonp(url, timeout=20000){ // ArcGIS REST supports callback= ; MoCo server blocks CORS for non-ArcGIS origins
+  return new Promise((res,rej)=>{
+    const cb='__jp'+(++jsonpN)+'_'+Date.now(); const s=document.createElement('script');
+    const t=setTimeout(()=>{cleanup();rej(new Error('timeout'))},timeout);
+    function cleanup(){clearTimeout(t);delete window[cb];s.remove()}
+    window[cb]=d=>{cleanup();res(d)}; s.onerror=()=>{cleanup();rej(new Error('jsonp failed'))};
+    s.src=url+(url.includes('?')?'&':'?')+'callback='+cb; document.head.appendChild(s);
+  });
+}
+function arcQuery(layer, params){
+  const p=new URLSearchParams(Object.assign({where:'1=1',outFields:'*',outSR:'4326',f:'json'},params));
+  return jsonp(layer+'/query?'+p.toString());
+}
+
+/* ============ STREET NORMALIZATION ============ */
+const SUFFIX = {STREET:'ST',STR:'ST',AVENUE:'AVE',AV:'AVE',AVN:'AVE',ROAD:'RD',DRIVE:'DR',DRV:'DR',LANE:'LN',COURT:'CT',CRT:'CT',PLACE:'PL',
+ BOULEVARD:'BLVD',BLV:'BLVD',HIGHWAY:'HWY',HWAY:'HWY',PARKWAY:'PKWY',PKY:'PKWY',PARKWY:'PKWY',CIRCLE:'CIR',CIRC:'CIR',TERRACE:'TER',TERR:'TER',
+ WAY:'WAY',TRAIL:'TRL',TR:'TRL',PIKE:'PIKE',SQUARE:'SQ',TURNPIKE:'TPKE',EXPRESSWAY:'EXPY',EXPWY:'EXPY',MEWS:'MEWS',ROW:'ROW',LOOP:'LOOP',
+ RUN:'RUN',PATH:'PATH',WALK:'WALK',GROVE:'GRV',KNOLL:'KNL',CROSSING:'XING',GLEN:'GLN',HILL:'HL',HOLLOW:'HOLW',LANDING:'LNDG',POINT:'PT',
+ RIDGE:'RDG',VIEW:'VW',VISTA:'VIS',PLAZA:'PLZ',CENTER:'CTR',COVE:'CV',GARDENS:'GDNS',HEIGHTS:'HTS',MANOR:'MNR',ALLEY:'ALY',BRIDGE:'BRG',
+ TERRACES:'TER',GATEWAY:'GTWY',SPRINGS:'SPGS',STATION:'STA',SPUR:'SPUR',ESTATES:'EST',
+ NORTH:'N',SOUTH:'S',EAST:'E',WEST:'W',NORTHEAST:'NE',NORTHWEST:'NW',SOUTHEAST:'SE',SOUTHWEST:'SW',SAINT:'ST',MOUNT:'MT'};
+// Direction words are only abbreviated at the start/end so "EAST WEST HIGHWAY" -> "EAST WEST HWY" stays matchable
+const DIRS = new Set(['NORTH','SOUTH','EAST','WEST','NORTHEAST','NORTHWEST','SOUTHEAST','SOUTHWEST']);
+function normStreet(s){
+  let w = String(s||'').toUpperCase().replace(/[.,#']/g,' ').replace(/\b(\d+)\s+(ST|ND|RD|TH)\b/g,'$1$2').replace(/\s+/g,' ').trim().split(' ').filter(Boolean);
+  w = w.map((t,i)=>{
+    if (DIRS.has(t)) return t;               // keep direction words; handled by aliases below
+    if (i>0 && SUFFIX[t]) return SUFFIX[t];   // never abbreviate the first word ("COURT HOUSE RD")
+    return t;
+  });
+  return w.join(' ');
+}
+function streetKeys(s){ // several variants to make matching tolerant
+  const n=normStreet(s); const k=new Set([n]);
+  const w=n.split(' ');
+  const abbr=w.map(t=>DIRS.has(t)?SUFFIX[t]:t).join(' '); k.add(abbr);
+  // without trailing suffix (e.g. "GEORGIA" for "GEORGIA AVE") only kept as weak key
+  return [...k];
+}
+function stripSuffix(n){const w=n.split(' ');const last=w[w.length-1];if(w.length>1&&Object.values(SUFFIX).includes(last))return w.slice(0,-1).join(' ');return n}
+
+/* Parse a CAD address into house number + street(s) */
+function parseAddress(addr){
+  let a=String(addr||'').toUpperCase().replace(/ /g,' ').trim();
+  a=a.replace(/\s*\(.*?\)\s*/g,' ').replace(/\b(APT|UNIT|STE|SUITE|BLDG|FL|RM)\b.*$/,'').trim();
+  const parts=a.split(/\s*(?:\/|&|@|\bAND\b|\bAT\b)\s*/).filter(Boolean);
+  const out=[];
+  parts.forEach(p=>{
+    let m=p.match(/^(\d+)[A-Z]?(?:-\d+)?\s+(?:BLK\s+|BLOCK\s+)?(.+)$/);
+    if(m) out.push({num:parseInt(m[1],10),street:m[2].trim()}); else out.push({num:null,street:p.replace(/^BLK\s+/,'').trim()});
+  });
+  return out;
+}
+function boxStation(box){const b=String(box||'').replace(/\D/g,'');if(b.length<3)return null;const n=parseInt(b.slice(0,2),10);return n>0?n:null}
+function blkScore(num, blk){
+  if(num==null||!blk) return 0;
+  let s=String(blk).toUpperCase().replace(/[–—−]/g,'-').replace(/\(.*?\)/g,' ');
+  const parity=/\bEVEN\b/.test(s)?0:(/\bODD\b/.test(s)?1:null);
+  if(parity!=null&&num%2!==parity) return 0;
+  s=s.replace(/\bUNIT\b/g,'0').replace(/(\d)\s+(TO|THRU|THROUGH)\s+(?=\d)/g,'$1-');
+  let best=0;
+  // "13000 blk & down", "13500 blk & higher", "9400 AND UP"
+  s=s.replace(/(\d+)\s*(?:BLK|BLOCK)?S?\s*(?:&|AND)?\s*(DOWN|BELOW|LOWER|LESS|UP|HIGHER|ABOVE|OVER)\b/g,(m,n,d)=>{n=+n;
+    const lo=/DOWN|BELOW|LOWER|LESS/.test(d)?0:n, hi=/DOWN|BELOW|LOWER|LESS/.test(d)?n+99:9999999;
+    if(num>=lo&&num<=hi) best=Math.max(best,2.05); return ' '});
+  s=s.replace(/\b(EVEN|ODD|BLOCK|BLK|BLKS)\b/g,' ');
+  s=s.replace(/(\d+)\s*-\s*(\d+)/g,(m,a,b)=>{const lo=Math.min(+a,+b),hi=Math.max(+a,+b);
+    if(num>=lo&&num<=hi) best=Math.max(best,2+0.5/(1+(hi-lo)/100));
+    else if(hi%100===0&&num>hi&&num<=hi+99) best=Math.max(best,1.5); // "…-2400" usually means through the 2400 block
+    return ' '});
+  (s.match(/\d+/g)||[]).forEach(n=>{n=+n;if(num===n)best=Math.max(best,3);else if(n%100===0&&num>=n&&num<=n+99)best=Math.max(best,1)});
+  return best;
+}
+function inBlock(num,blk){return blkScore(num,blk)>0}
+/* ================= STORAGE (IndexedDB) ================= */
+const DB={db:null,
+  open(){return new Promise((res,rej)=>{const r=indexedDB.open('mocoRoutes',1);r.onupgradeneeded=()=>{r.result.createObjectStore('files',{keyPath:'id'})};r.onsuccess=()=>{DB.db=r.result;res()};r.onerror=()=>rej(r.error)})},
+  all(){return new Promise((res,rej)=>{const t=DB.db.transaction('files').objectStore('files').getAll();t.onsuccess=()=>res(t.result);t.onerror=()=>rej(t.error)})},
+  put(o){return new Promise((res,rej)=>{const t=DB.db.transaction('files','readwrite').objectStore('files').put(o);t.onsuccess=res;t.onerror=()=>rej(t.error)})},
+  del(id){return new Promise((res,rej)=>{const t=DB.db.transaction('files','readwrite').objectStore('files').delete(id);t.onsuccess=res;t.onerror=()=>rej(t.error)})}
+};
+let FILES=[]; // {id,name,mime,data(ArrayBuffer),station,kind,pages:[text],rows:[{street,streetShown,blk,map,complex,page}]}
+let memoryOnly=false;
+
+/* ================= PDF / IMAGE PARSING ================= */
+async function initPdf(){
+  try{const txt=await (await fetch(PDFJS_WORKER)).text();pdfjsLib.GlobalWorkerOptions.workerSrc=URL.createObjectURL(new Blob([txt],{type:'text/javascript'}))}
+  catch(e){pdfjsLib.GlobalWorkerOptions.workerSrc=PDFJS_WORKER}
+}
+let tessWorker=null;
+async function ocrCanvas(canvas,scale=1){
+  if(!window.Tesseract) await loadScript(TESSERACT);
+  if(!tessWorker) tessWorker=await Tesseract.createWorker('eng');
+  const {data}=await tessWorker.recognize(canvas);
+  // convert to pdf-like items (y grows downward here -> invert)
+  const H=canvas.height; const items=[];
+  (data.words||[]).forEach(w=>items.push({str:w.text,x:w.bbox.x0/scale,y:(H-w.bbox.y1)/scale,w:(w.bbox.x1-w.bbox.x0)/scale,h:(w.bbox.y1-w.bbox.y0)/scale}));
+  return items;
+}
+function groupLines(items){
+  const sorted=[...items].filter(i=>i.str&&i.str.trim()).sort((a,b)=>b.y-a.y||a.x-b.x);
+  const lines=[];
+  sorted.forEach(it=>{
+    const tol=Math.max(3,(it.h||8)*0.45);
+    let ln=lines.find(l=>Math.abs(l.y-it.y)<=tol);
+    if(!ln){ln={y:it.y,items:[]};lines.push(ln)}
+    ln.items.push(it);
+  });
+  lines.forEach(l=>l.items.sort((a,b)=>a.x-b.x));
+  lines.sort((a,b)=>b.y-a.y);
+  return lines;
+}
+const HDR={street:/^street(\s*name)?$/i,blk:/^(b[li1|]k|blk\.?|block|hundred\s*block)$/i,
+  map:/^(map(\s*(page|pg|#|no\.?))?|st\.?\s*map|street\s*map|box\s*map|quick\s*map)$/i,
+  complex:/^(complex|detail(\s*map)?|th\s*map|townhouse\s*map|site\s*plan|lw\s*map)$/i};
+function phrases(items){ // header words close together form one label ("Box Map", "SITE PLAN")
+  const ph=[]; [...items].sort((a,b)=>a.x-b.x).forEach(it=>{const t=it.str.trim();if(!t)return;const l=ph[ph.length-1];
+    const joins=l&&it.x-l.x2<12&&(/^(name|map|maps|page|pg|plan|block|route|routes|#|no\.?)$/i.test(t)||/^(st\.?|street|box|th|townhouse|site|lw|detail|map|hundred|running|quick)$/i.test(l.t));
+    if(joins){l.t+=' '+t;l.x2=it.x+(it.w||t.length*5)}else ph.push({t,x:it.x,x2:it.x+(it.w||t.length*5)})});
+  ph.forEach(p=>p.t=p.t.replace(/[:.]$/,'').replace(/\s+/g,' ').trim()); return ph;
+}
+function findHeader(line){
+  // one or more side-by-side tables: every "Street"/"Street Name" label starts a group
+  const ph=phrases(line.items); const groups=[];
+  if(ph.some(p=>/^RUNNING\s*ROUTES?$/i.test(p.t))) return null; // a running-route table, not the street index
+  ph.forEach(p=>{if(HDR.street.test(p.t)) groups.push({street:p.x,blk:null,map:null,smap:null,complex:null,start:p.x})});
+  if(!groups.length) return null;
+  ph.forEach(p=>{
+    const g=[...groups].reverse().find(g=>p.x>=g.start-2); if(!g||HDR.street.test(p.t)) return;
+    if(HDR.blk.test(p.t)&&g.blk==null) g.blk=p.x;
+    else if(HDR.map.test(p.t)){ if(g.map==null) g.map=p.x; else if(g.smap==null) g.smap=p.x; } // first map column = map page, second (e.g. "Box Map") kept too
+    else if(HDR.complex.test(p.t)&&g.complex==null) g.complex=p.x;
+  });
+  const ok=groups.filter(g=>g.map!=null||g.blk!=null);
+  return ok.length?ok:null;
+}
+const RX_BLK={test:s=>{s=String(s).trim();return !s||/^(\d|UNIT\b)/i.test(s)}},
+      RX_MAP=/^(((\d{1,3}\s*[-–]\s*)?[A-Z]{0,2}\d{1,3}[A-Z]{0,2}\d{0,2}(\s*[-–]\s*[A-Z])?|ALL\s+MAPS?)[\s,&]*)*$/i;
+function rowsFromLines(lines, pageNo, state){
+  const out=[]; // per group, so side-by-side tables keep their own order
+  const pending=[]; // street-name-only lines, kept only if data rows follow
+  lines.forEach(line=>{
+    const h=findHeader(line); if(h){state.groups=h;state.last=h.map(()=>'');return}
+    if(!state.groups) return;
+    const G=state.groups;
+    const cells=G.map(()=>({street:[],blk:[],map:[],smap:[],complex:[]}));
+    line.items.forEach(it=>{
+      let gi=-1; for(let i=G.length-1;i>=0;i--){if(it.x>=G[i].start-6){gi=i;break}} if(gi<0) gi=0;
+      const g=G[gi];
+      const cols=[['street',g.street],['blk',g.blk],['map',g.map],['smap',g.smap],['complex',g.complex]].filter(c=>c[1]!=null).sort((a,b)=>a[1]-b[1]);
+      let col=cols[0][0];
+      cols.forEach(c=>{if(it.x+ (it.w||0)*0.5 >= c[1]-6) col=c[0]});
+      cells[gi][col].push(it.str.trim());
+    });
+    cells.forEach((c,gi)=>{
+      const g=G[gi], nextStart=G[gi+1]?G[gi+1].start:Infinity;
+      const unMap=s=>s.join(' ').trim().replace(/\b(MAPS?|BMAP|SM)\s*:?\s*(?=[A-Z]?\d)/gi,'').replace(/(\d)\s*-\s*(?=[A-Z0-9])/g,'$1-').trim(); // "MAP 1-08", "MAP: 4-38", "SM 14-103"
+      const r={streetShown:c.street.join(' ').trim(),blk:c.blk.join(' ').trim(),map:unMap(c.map),smap:unMap(c.smap),complex:c.complex.join(' ').trim().replace(/\bMAPS?\s*:?\s*(?=[A-Z]?\d)/gi,'').trim(),page:pageNo,
+        _y:line.y,_cols:[['street',g.street],['blk',g.blk],['map',g.map],['smap',g.smap],['complex',g.complex]].filter(c=>c[1]!=null).sort((a,b)=>a[1]-b[1]).map((c,i,a)=>[c[0],c[1],a[i+1]?a[i+1][1]:nextStart])};
+      if(!r.streetShown&&!r.blk&&!r.map&&!r.complex&&!r.smap) return;
+      if(/^[-–—_\s]+$/.test(r.streetShown+r.blk+r.map+r.complex)) return;
+      if(/^page\s*\d+/i.test(r.streetShown)) return;
+      if(!RX_BLK.test(r.blk)||!RX_MAP.test(r.map)){pending[gi]=null;return} // not an index row (e.g. route narrative text)
+      const og=(out[gi]=out[gi]||[]);
+      if(r.streetShown && !r.blk && !r.map && !r.complex && !r.smap){ // street on its own line; keep only if data rows follow
+        pending[gi]={...r,street:r.streetShown}; state.last[gi]=r.streetShown; return;
+      }
+      if(!r.streetShown && pending[gi]){og.push(pending[gi])}
+      pending[gi]=null;
+      if(r.streetShown) state.last[gi]=r.streetShown;
+      r.street=r.streetShown||state.last[gi]||'';
+      if(!r.street||(!r.blk&&!r.map&&!r.complex&&!r.smap)) return;
+      if(!r.smap) delete r.smap;
+      og.push(r);
+    });
+  });
+  return out.flat().filter(Boolean);
+}
+function quickMapRows(lines,pageNo,links,pageW){
+  const mid=(pageW||612)/2, rows=[], last=[null,null];
+  const clusters=l=>{const cl=[];l.items.forEach(it=>{const c=cl[cl.length-1];if(c&&it.x-c.x2<9){c.t+=' '+it.str.trim();c.x2=it.x+(it.w||0)}else cl.push({t:it.str.trim(),x:it.x,x2:it.x+(it.w||0),y:it.y,h:it.h})});return cl.filter(c=>c.t)};
+  lines.forEach(l=>{
+    if(/QUICK\s*MAPS/i.test(l.items.map(i=>i.str).join(' '))) return;
+    clusters(l).forEach(c=>{
+      const half=c.x<mid?0:1;
+      if(/^\(.*\)$/.test(c.t)){if(last[half]&&!last[half].blk)last[half].blk=c.t.slice(1,-1).trim();return}
+      if(/^\d{1,3}(\s*-\s*[A-Z])?$/.test(c.t)&&last[half]&&!last[half].map){last[half].map=c.t.replace(/\s/g,'');
+        const lk=(links||[]).find(k=>{const [x1,y1,x2,y2]=k.rect;return c.x<Math.max(x1,x2)&&c.x2>Math.min(x1,x2)&&c.y+4>=Math.min(y1,y2)-3&&c.y+4<=Math.max(y1,y2)+3});
+        if(lk)last[half].mapLink=lk;return}
+      if(/[A-Z]{2}/.test(c.t)&&!/\d{3}/.test(c.t)){const r={streetShown:c.t,street:c.t,blk:'',map:'',complex:'',page:pageNo};rows.push(r);last[half]=r}
+    });
+  });
+  return rows.filter(r=>r.map);
+}
+function attachRowLinks(rows,links){
+  rows.forEach(r=>{
+    if(r._y==null) return;
+    (links||[]).forEach(l=>{
+      const [x1,y1,x2,y2]=l.rect; const cx=(x1+x2)/2;
+      if(r._y<Math.min(y1,y2)-4||r._y>Math.max(y1,y2)+4) return;
+      const c=(r._cols||[]).find(c=>cx>=c[1]-8&&cx<c[2]-8); if(!c) return;
+      if(c[0]==='map'&&r.map&&!r.mapLink) r.mapLink=l;
+      else if(c[0]==='smap'&&r.smap&&!r.smapLink) r.smapLink=l;
+      else if(c[0]==='complex'&&r.complex&&!r.detailLink) r.detailLink=l;
+    });
+    delete r._y; delete r._cols;
+  });
+}
+const PARSE_V=4;
+async function parseFile(file, buf){
+  const rec={id:Date.now()+'_'+Math.random().toString(36).slice(2,7),name:file.name,mime:file.type||(file.name.toLowerCase().endsWith('.pdf')?'application/pdf':''),data:buf,pages:[],rows:[],station:null,kind:'routes',
+    v:PARSE_V,items:[],sizes:[],links:[]};
+  const state={groups:null,last:[]};
+  if(rec.mime.includes('pdf')){
+    const pdf=await pdfjsLib.getDocument({data:buf.slice(0),standardFontDataUrl:PDF_FONTS}).promise;
+    // Digital books have real text on most pages; their text-less pages are photos/graphics, not worth OCR.
+    // Only a mostly-scanned book gets OCR.
+    let textPages=0; const sample=Math.min(pdf.numPages,40);
+    for(let p=1;p<=sample;p++){const tc=await (await pdf.getPage(p)).getTextContent();if(tc.items.map(i=>i.str.trim()).join('').length>=15)textPages++}
+    const allowOcr=textPages<sample*0.3;
+    for(let p=1;p<=pdf.numPages;p++){
+      log(`${esc(file.name)}: reading page ${p}/${pdf.numPages}…`);
+      const page=await pdf.getPage(p); const tc=await page.getTextContent(); state.groups=null; // each index page carries its own header
+      let items=tc.items.map(i=>({str:i.str,x:i.transform[4],y:i.transform[5],w:i.width,h:Math.abs(i.transform[3])||i.height}));
+      if(allowOcr&&items.map(i=>i.str.trim()).join('').length<15){ // scanned page (no text layer) -> OCR
+        log(`${esc(file.name)}: page ${p} is scanned, running OCR (slow the first time)…`);
+        const vp=page.getViewport({scale:2.2}); const c=document.createElement('canvas'); c.width=vp.width;c.height=vp.height;
+        await page.render({canvasContext:c.getContext('2d'),viewport:vp}).promise;
+        items=await ocrCanvas(c,2.2);
+      }
+      const lines=groupLines(items);
+      rec.pages.push(lines.map(l=>l.items.map(i=>i.str).join(' ').replace(/\s+/g,' ').trim()).join('\n'));
+      rec.sizes.push([page.view[2],page.view[3],page.view[0],page.view[1]]);
+      rec.items.push(items.filter(i=>i.str.trim()).map(i=>[i.str,+i.x.toFixed(1),+i.y.toFixed(1),+(i.w||0).toFixed(1),+(i.h||8).toFixed(1)]));
+      let links=[];
+      try{
+        const ann=await page.getAnnotations();
+        for(const a of ann.filter(a=>a.subtype==='Link')){
+          const l={rect:a.rect.map(v=>+v.toFixed(1))};
+          if(a.url) l.url=a.url; if(a.unsafeUrl) l.target=a.unsafeUrl; if(a.action) l.action=a.action;
+          if(a.dest){try{const d=typeof a.dest==='string'?await pdf.getDestination(a.dest):a.dest;
+            if(d&&d[0]!=null) l.page=(typeof d[0]==='number'?d[0]:await pdf.getPageIndex(d[0]))+1}catch(e){}}
+          if(l.url||l.target||l.page||l.action) links.push(l);
+        }
+      }catch(e){}
+      rec.links.push(links);
+      let pr=rowsFromLines(lines,p,state); attachRowLinks(pr,links);
+      if(!pr.length&&/QUICK\s*MAPS/i.test(rec.pages[rec.pages.length-1])) pr=quickMapRows(lines,p,links,page.view[2]);
+      rec.rows.push(...pr);
+    }
+  } else if(rec.mime.startsWith('image/')){
+    log(`${esc(file.name)}: running OCR on image…`);
+    const img=await createImageBitmap(new Blob([buf],{type:rec.mime}));
+    const c=document.createElement('canvas'); const sc=Math.min(1,3000/Math.max(img.width,img.height))*1.0; c.width=img.width*sc;c.height=img.height*sc;
+    c.getContext('2d').drawImage(img,0,0,c.width,c.height);
+    const items=await ocrCanvas(c,sc); const lines=groupLines(items);
+    rec.pages.push(lines.map(l=>l.items.map(i=>i.str).join(' ')).join('\n'));
+    rec.sizes.push([img.width,img.height,0,0]); rec.items.push(items.map(i=>[i.str,i.x,i.y,i.w,i.h])); rec.links.push([]);
+    const pr=rowsFromLines(lines,1,state); pr.forEach(r=>{delete r._y;delete r._cols}); rec.rows.push(...pr);
+  } else throw new Error('Unsupported file type');
+  rec.kind = detectKind(rec); rec.kindAuto = true;
+  rec.station = guessStation(rec);
+  return rec;
+}
+function detectKind(rec){
+  if(rec.rows.length) return 'index';
+  const base=rec.name.replace(/\.[a-z0-9]+$/i,'').trim();
+  if(/detail|complex|apt|apartment|condo|nursing/i.test(base)||/^\d{1,2}[A-Z]{1,2}$/i.test(base)) return 'complex';
+  if(/^(map\s*|box\s*)?\d{1,2}\s*[-_ ]\s*\d{1,3}[A-Z]?$/i.test(base)) return 'boxmap';
+  if(/box|map/i.test(rec.name)) return 'boxmap';
+  if(/route|running|run\b/i.test(rec.name)) return 'routes';
+  return 'routes';
+}
+const KINDS={index:'Street index',routes:'Running routes',boxmap:'Box / map pages',complex:'Detail / complex maps'};
+function guessStation(rec){
+  const fm=rec.name.match(/\b(?:station|sta|stn|co(?:mpany)?)[\s._#-]*0?(\d{1,2})\b/i); if(fm) return +fm[1];
+  if(/^\d{1,2}[A-Z]{1,2}$/i.test(rec.name.replace(/\.[a-z0-9]+$/i,'').trim())) return null; // detail map like 3H
+  const counts={}; rec.rows.forEach(r=>{const m=String(r.map).match(/^(\d{1,2})\s*-/);if(m){const n=+m[1];counts[n]=(counts[n]||0)+1}});
+  const best=Object.entries(counts).sort((a,b)=>b[1]-a[1])[0]; if(best) return +best[0];
+  const m=rec.name.match(/(?:sta(?:tion)?|stn|st)[\s_\-#]*0?(\d{1,2})/i)||rec.name.match(/(?:^|\D)0?(\d{1,2})(?:\D|$)/);
+  return m?+m[1]:null;
+}
+
+/* ================= STATION SELECTION ================= */
+let selected=new Set(LS.get('selStations',Array.from({length:NSTATIONS},(_,i)=>i+1)));
+function stationsWithFiles(){return new Set(FILES.map(f=>f.station).filter(Boolean))}
+function renderStations(){
+  const has=stationsWithFiles(); const g=$('#stationGrid'); g.innerHTML='';
+  for(let i=1;i<=NSTATIONS;i++){
+    const l=document.createElement('label'); if(has.has(i)) l.className='has';
+    l.innerHTML=`<input type="checkbox" ${selected.has(i)?'checked':''} data-st="${i}"> Station ${i}${has.has(i)?' <span class="pill">'+FILES.filter(f=>f.station===i).length+'</span>':''}`;
+    g.appendChild(l);
+  }
+}
+$('#stationGrid').addEventListener('change',e=>{const n=+e.target.dataset.st;if(!n)return;e.target.checked?selected.add(n):selected.delete(n);saveSel()});
+$('#selAll').onclick=()=>{selected=new Set(Array.from({length:NSTATIONS},(_,i)=>i+1));saveSel(true)};
+$('#selNone').onclick=()=>{selected=new Set();saveSel(true)};
+$('#selHas').onclick=()=>{selected=stationsWithFiles();saveSel(true)};
+function saveSel(rerender){LS.set('selStations',[...selected]);if(rerender)renderStations();buildIndex();renderIndex();rematch()}
+
+/* ================= STREET INDEX ================= */
+let INDEX=new Map(); // key -> [{row,file}]
+function buildIndex(){
+  INDEX=new Map();
+  FILES.forEach(f=>{f.rows.forEach(r=>{streetKeys(r.street).forEach(k=>{if(!INDEX.has(k))INDEX.set(k,[]);INDEX.get(k).push({row:r,file:f})})})});
+}
+function lookupStreet(street){
+  const out=[]; const seen=new Set();
+  streetKeys(street).forEach(k=>{(INDEX.get(k)||[]).forEach(e=>{const id=e.file.id+'|'+e.row.page+'|'+e.row.blk+'|'+e.row.map+'|'+e.row.complex+'|'+e.row.street;if(!seen.has(id)){seen.add(id);out.push(e)}})});
+  if(!out.length){ // weak match: same name without suffix (CAD "GEORGIA AV" vs file "GEORGIA AVENUE")
+    const base=stripSuffix(normStreet(street));
+    INDEX.forEach((v,k)=>{if(stripSuffix(k)===base)v.forEach(e=>{const id=e.file.id+'|'+e.row.page+'|'+e.row.blk+'|'+e.row.map+'|'+e.row.street;if(!seen.has(id)){seen.add(id);out.push(e)}})});
+  }
+  return out;
+}
+function renderIndex(){
+  const q=$('#idxSearch').value.trim().toUpperCase(); const out=$('#idxOut');
+  const byStation={};
+  FILES.filter(f=>f.station&&selected.has(f.station)||(!f.station&&selected.size===NSTATIONS)).forEach(f=>{
+    f.rows.forEach(r=>{
+      if(q){const s=r.street.toUpperCase(); const sq=q.replace(/\s+/g,' '); if(!s.includes(sq)&&!normStreet(s).includes(normStreet(sq))&&!initials(s).startsWith(sq.replace(/\s/g,'')))return}
+      const st=f.station||0;(byStation[st]=byStation[st]||[]).push({r,f});
+    });
+  });
+  const keys=Object.keys(byStation).map(Number).sort((a,b)=>a-b);
+  let total=0;
+  out.innerHTML=keys.length?keys.map(st=>{
+    const list=byStation[st]; total+=list.length;
+    const shown=list.slice(0,q?2000:600);
+    let prev='';
+    return `<div class="card"><h3>${st?'Station '+st:'Unassigned station'} <span class="pill">${list.length} rows</span></h3>
+      <table><thead><tr><th>Street Name</th><th>BLK</th><th>Map Page</th><th>Detail Map</th><th class="small">Source</th></tr></thead><tbody>${
+      shown.map(({r,f})=>{const showName=r.streetShown||(r.street!==prev?r.street:'');prev=r.street;
+        return `<tr class="clickable" data-file="${f.id}" data-page="${r.page}"><td>${q?hi(showName||r.street,q):esc(showName)}</td><td>${esc(r.blk)}</td><td>${cellLink(f,r,'map',r.map)}</td><td>${cellLink(f,r,'detail',r.complex)}</td><td class="small muted">${esc(f.name)} p${r.page}</td></tr>`}).join('')
+      }</tbody></table>${list.length>shown.length?`<div class="small muted">Showing ${shown.length} of ${list.length} — type to narrow.</div>`:''}</div>`;
+  }).join(''):`<div class="muted">${FILES.length?'No streets match.':'No files loaded yet.'}</div>`;
+  $('#idxCount').textContent=total?total+' rows':'';
+}
+function initials(s){return s.split(/\s+/).map(w=>w[0]||'').join('')}
+function hi(text,q){const t=esc(text);const i=String(text).toUpperCase().indexOf(q);if(i<0)return t;return esc(text.slice(0,i))+'<mark>'+esc(text.slice(i,i+q.length))+'</mark>'+esc(text.slice(i+q.length))}
+$('#idxSearch').addEventListener('input',()=>renderIndex());
+$('#idxOut').addEventListener('click',e=>{const tr=e.target.closest('tr[data-file]');if(tr)openPage(tr.dataset.file,+tr.dataset.page)});
+
+/* ================= FILES UI ================= */
+function log(h){$('#parseLog').innerHTML=h}
+async function addFiles(list){
+  for(const file of list){
+    try{
+      const buf=await file.arrayBuffer();
+      const rec=await parseFile(file,buf);
+      // same file name = updated version: replace it, keeping the station/type you set
+      const prev=FILES.find(f=>f.name.toLowerCase()===file.name.toLowerCase());
+      if(prev){
+        if(prev.station) rec.station=prev.station;
+        if(prev.kindAuto===false){rec.kind=prev.kind;rec.kindAuto=false}
+        FILES=FILES.filter(f=>f!==prev); pdfCache.delete(prev.id);
+        if(!memoryOnly) try{await DB.del(prev.id)}catch(e){}
+      }
+      FILES.push(rec); if(!memoryOnly) try{await DB.put(rec)}catch(e){memoryOnly=true}
+      if(rec.station) selected.add(rec.station);
+      log(`✅ ${esc(file.name)} — ${prev?'replaced the older copy · ':''}${rec.rows.length} street rows, ${rec.pages.length} page(s), station ${rec.station??'? (set below)'}`);
+    }catch(e){console.error(e);log(`❌ ${esc(file.name)}: ${esc(e.message)}`)}
+  }
+  LS.set('selStations',[...selected]); refreshAll();
+}
+function refreshAll(){FILES_VER++;buildIndex();renderStations();renderFiles();renderIndex();rematch()}
+function renderFiles(){
+  $('#fileTable tbody').innerHTML=FILES.length?FILES.map(f=>`<tr>
+    <td><a href="#" data-open="${f.id}">${esc(f.name)}</a></td>
+    <td><select data-st="${f.id}"><option value="">?</option>${Array.from({length:NSTATIONS},(_,i)=>`<option ${f.station===i+1?'selected':''} value="${i+1}">Station ${i+1}</option>`).join('')}</select></td>
+    <td><select data-kind="${f.id}">${Object.entries(KINDS).map(([k,v])=>`<option value="${k}" ${f.kind===k?'selected':''}>${v}</option>`).join('')}</select></td>
+    <td>${f.pages.length}</td><td>${f.rows.length}</td>
+    <td><button class="btn small" data-del="${f.id}">Remove</button></td></tr>`).join(''):'<tr><td colspan="6" class="muted">None yet.</td></tr>';
+}
+$('#fileTable').addEventListener('change',async e=>{
+  const id=e.target.dataset.st||e.target.dataset.kind; const f=FILES.find(x=>x.id===id); if(!f)return;
+  if(e.target.dataset.st){f.station=e.target.value?+e.target.value:null; if(f.station)selected.add(f.station); LS.set('selStations',[...selected])}
+  else {f.kind=e.target.value; f.kindAuto=false}
+  if(!memoryOnly) try{await DB.put(f)}catch(_){}
+  refreshAll();
+});
+$('#fileTable').addEventListener('click',async e=>{
+  const d=e.target.dataset.del, o=e.target.dataset.open;
+  if(d){FILES=FILES.filter(f=>f.id!==d); if(!memoryOnly) try{await DB.del(d)}catch(_){} refreshAll()}
+  if(o){e.preventDefault();openPage(o,1)}
+});
+const drop=$('#drop');
+['dragenter','dragover'].forEach(ev=>drop.addEventListener(ev,e=>{e.preventDefault();drop.classList.add('over')}));
+['dragleave','drop'].forEach(ev=>drop.addEventListener(ev,e=>{e.preventDefault();drop.classList.remove('over')}));
+drop.addEventListener('drop',e=>addFiles([...e.dataTransfer.files]));
+$('#fileInput').addEventListener('change',e=>{addFiles([...e.target.files]);e.target.value=''});
+
+/* ======= Render a page of a stored file (PDF page or image) ======= */
+const pdfCache=new Map();
+async function getPdf(f){if(!pdfCache.has(f.id))pdfCache.set(f.id,pdfjsLib.getDocument({data:f.data.slice(0),standardFontDataUrl:PDF_FONTS}).promise);return pdfCache.get(f.id)}
+// opts: {rects:[[x1,y1,x2,y2]...] yellow highlight, band:[x1,y1,x2,y2] red outline, crop:[x1,y1,x2,y2], links:true}
+async function renderPageEl(f,pageNo,scale=1.4,opts={}){
+  const c=document.createElement('canvas'); let conv;
+  if(f.mime.startsWith('image/')){
+    const img=await createImageBitmap(new Blob([f.data],{type:f.mime}));
+    const s=Math.min(scale*0.7,2400/img.width); c.width=img.width*s;c.height=img.height*s;
+    c.getContext('2d').drawImage(img,0,0,c.width,c.height);
+    const H=img.height; conv=([x1,y1,x2,y2])=>[x1*s,(H-y2)*s,x2*s,(H-y1)*s];
+  } else {
+    const pdf=await getPdf(f);const page=await pdf.getPage(pageNo);const vp=page.getViewport({scale});
+    c.width=vp.width;c.height=vp.height;
+    await page.render({canvasContext:c.getContext('2d'),viewport:vp}).promise;
+    conv=r=>{const q=vp.convertToViewportRectangle(r);return [Math.min(q[0],q[2]),Math.min(q[1],q[3]),Math.max(q[0],q[2]),Math.max(q[1],q[3])]};
+  }
+  const ctx=c.getContext('2d');
+  (opts.rects||[]).forEach(r=>{const [a,b,cc,d]=conv(r);ctx.fillStyle='rgba(255,214,0,.45)';ctx.fillRect(a-3,b-2,cc-a+6,d-b+4)});
+  if(opts.band){const [a,b,cc,d]=conv(opts.band);ctx.strokeStyle='#e00000';ctx.lineWidth=Math.max(3,scale*2);ctx.strokeRect(a-6,b-6,cc-a+12,d-b+12)}
+  if(opts.crop){
+    const [a,b,cc,d]=conv(opts.crop); const m=14*scale/1.5;
+    const x=Math.max(0,a-m),y=Math.max(0,b-m),w=Math.min(c.width,cc+m)-x,hh=Math.min(c.height,d+m)-y;
+    const o=document.createElement('canvas');o.width=w;o.height=hh;o.getContext('2d').drawImage(c,x,y,w,hh,0,0,w,hh);
+    const wrap=document.createElement('div');wrap.className='pw';wrap.appendChild(o);return wrap;
+  }
+  const wrap=document.createElement('div');wrap.className='pw';wrap.appendChild(c);
+  if(opts.links!==false){
+    ((f.links||[])[pageNo-1]||[]).forEach(l=>{
+      const [a,b,cc,d]=conv(l.rect); const el=document.createElement('a');el.className='plink';el.href='#';
+      el.title=l.target||l.url||(l.page?'Page '+l.page:l.action||'link');
+      Object.assign(el.style,{left:a/c.width*100+'%',top:b/c.height*100+'%',width:(cc-a)/c.width*100+'%',height:(d-b)/c.height*100+'%'});
+      el.onclick=e=>{e.preventDefault();e.stopPropagation();followLink(f,pageNo,l)};
+      wrap.appendChild(el);
+    });
+  }
+  return wrap;
+}
+function baseName(s){let t=String(s||'');try{t=decodeURIComponent(t)}catch(e){}return t.split('#')[0].split(/[\\/]/).pop().replace(/\.[a-z0-9]{2,4}$/i,'').trim().toLowerCase()}
+function findFileByName(name){const bn=baseName(name),sq=bn.replace(/[\s_\-]+/g,'');
+  return FILES.find(x=>baseName(x.name)===bn)||FILES.find(x=>baseName(x.name).replace(/[\s_\-]+/g,'')===sq)||null}
+// Resolve a PDF hyperlink to {file,page} (another uploaded PDF or same file), {url}, or {missing}
+async function resolveLink(f,pageNo,l){
+  if(!l) return null;
+  if(l.page) return {file:f,page:l.page};
+  if(l.action){const n=f.pages.length;const m={NextPage:pageNo+1,PrevPage:pageNo-1,FirstPage:1,LastPage:n}[l.action];if(m)return{file:f,page:Math.min(n,Math.max(1,m))}}
+  const t=l.target||l.url; if(!t) return null;
+  if(/^(https?|mailto):/i.test(t)) return {url:t};
+  let [path,hash='']=t.split(/#(.*)/s);
+  const tf=path?findFileByName(path):f;
+  if(!tf) return {missing:path.split(/[\\/]/).pop()};
+  let page=1; try{hash=decodeURIComponent(hash)}catch(e){}
+  if(hash.startsWith('[')){try{const a=JSON.parse(hash);if(typeof a[0]==='number')page=a[0]+1}catch(e){}}
+  else if(/page=(\d+)/.test(hash)) page=+hash.match(/page=(\d+)/)[1];
+  else if(hash&&tf.mime.includes('pdf')){try{const pdf=await getPdf(tf);const d=await pdf.getDestination(hash.replace(/^nameddest=/,''));if(d)page=(typeof d[0]==='number'?d[0]:await pdf.getPageIndex(d[0]))+1}catch(e){}}
+  return {file:tf,page:Math.min(Math.max(1,page),tf.pages.length||1)};
+}
+async function followLink(f,pageNo,l){
+  const r=await resolveLink(f,pageNo,l);
+  if(!r) return;
+  if(r.url){window.open(r.url,'_blank');return}
+  if(r.missing){flash(`Linked file “${r.missing}” isn’t loaded. Add it on Files & Stations.`);return}
+  openPage(r.file.id,r.page);
+}
+function flash(msg){const t=document.createElement('div');t.className='toast';t.style.borderColor='#f2a33a';t.textContent=msg;$('#alertBanner').prepend(t);setTimeout(()=>t.remove(),6000)}
+const vHist=[];
+async function openPage(fileId,pageNo,opts={},fromBack){
+  const f=FILES.find(x=>x.id===fileId);if(!f)return;const v=$('#viewer');
+  if(!fromBack&&v.style.display==='block'&&v.dataset.cur) vHist.push(JSON.parse(v.dataset.cur));
+  if(v.style.display!=='block'&&!fromBack) vHist.length=0;
+  v.dataset.cur=JSON.stringify([fileId,pageNo,opts]);
+  v.innerHTML=`<div style="margin-bottom:8px;position:sticky;top:0;z-index:2"><button class="btn" id="vClose">Close</button> ${vHist.length?'<button class="btn" id="vBack">← Back</button>':''}
+   <button class="btn small" id="vPrev">◀</button> <button class="btn small" id="vNext">▶</button> <span class="muted">${esc(f.name)} — page ${pageNo}/${f.pages.length} · blue boxes are the PDF's links</span></div>`;
+  v.style.display='block';
+  try{v.appendChild(await renderPageEl(f,pageNo,2,opts))}catch(e){console.error(e);v.insertAdjacentHTML('beforeend','<div class="muted">Could not render this page.</div>')}
+  $('#vClose').onclick=()=>{v.style.display='none';vHist.length=0};
+  if($('#vBack'))$('#vBack').onclick=()=>{const p=vHist.pop();if(p)openPage(p[0],p[1],p[2],true)};
+  $('#vPrev').onclick=()=>pageNo>1&&openPage(fileId,pageNo-1);
+  $('#vNext').onclick=()=>pageNo<f.pages.length&&openPage(fileId,pageNo+1);
+}
+document.addEventListener('keydown',e=>{if(e.key==='Escape')$('#viewer').style.display='none'});
+
+/* ================= MATCHING ================= */
+let FILES_VER=0; const matchCache=new Map();
+function matchIncident(inc){
+  const ck=incKey(inc)+'|'+inc.box+'|'+FILES_VER+'|'+[...selected].join(',');
+  if(matchCache.has(ck)) return matchCache.get(ck);
+  const res=computeMatch(inc); if(matchCache.size>400) matchCache.clear(); matchCache.set(ck,res); return res;
+}
+const isBoxId=s=>/^(\d{1,2}\s*[-–]\s*\d{1,3}|\d{1,3}(\s*-\s*[A-Z])?)$/i.test(String(s||'').trim());
+const isDetailId=s=>/^[A-Z0-9]{1,4}(\s*-\s*[A-Z0-9]{1,4})?$/i.test(String(s||'').trim());
+const isDetailMap=s=>/^\d{1,2}\s*[-–]\s*\d{0,3}[A-Z]{1,2}\d{0,2}$/i.test(String(s||'').trim()); // "1-8A", "1-10D", "19-A14" style in the MAP column
+const detKey=s=>String(s||'').toUpperCase().replace(/\s/g,'').replace(/^\d{1,2}-(?=\d{0,3}[A-Z])/,''); // "1-9D" ~ "9D"
+
+function computeMatch(inc){
+  const st=inc.station; const parts=parseAddress(inc.address);
+  const res={station:st,parts,rows:[],blockHit:false,streetOnly:[],routePages:[],boxMap:[],route:null};
+  // 1) scrub the street name against every index, then 2) match the block numbers
+  parts.forEach(p=>{
+    lookupStreet(p.street).forEach(e=>{
+      if(e.file.station && !selected.has(e.file.station)) return;
+      const score=blkScore(p.num,e.row.blk), hitBlock=score>0;
+      const ok = st!=null && e.file.station===st;
+      const item={...e,part:p,hitBlock,score};
+      if(ok){res.rows.push(item); if(hitBlock)res.blockHit=true} else res.streetOnly.push(item);
+    });
+  });
+  const hits=res.rows.filter(r=>r.hitBlock).sort((a,b)=>b.score-a.score);
+  // 3) map page from the matching row; detail map from the same row when it has one
+  res.boxRow=hits.find(r=>isBoxId(r.row.map))||hits[0]||(!hits.length?res.rows.find(r=>isBoxId(r.row.map))||res.rows[0]:null)||null;
+  // detail map: from the matched row if it has one, otherwise the best other matching row that carries one
+  const det=(res.boxRow&&res.boxRow.row.complex?res.boxRow:null)||hits.find(r=>r.row.complex)||null;
+  const detM=!det&&hits.find(r=>isDetailMap(r.row.map));
+  if(detM) res.detail={item:detM,id:detM.row.map,link:detM.row.mapLink,label:'Detail '+detM.row.map};
+  if(det){const r=det.row;
+    if(isDetailId(r.complex)) res.detail={item:det,id:r.complex,link:r.detailLink,label:'Detail '+r.complex};
+    else res.detail={item:det,id:r.map,link:r.mapLink,name:r.complex,label:r.complex+(r.map?' · '+r.map:'')};
+    if(res.detail.id===(res.boxRow&&res.boxRow.row.map)&&!isBoxId(res.boxRow.row.map)) res.boxRow=hits.find(r=>r!==det&&isBoxId(r.row.map))||null;
+  }
+  // 4) running-route section on the running-route pages (block range checked there too)
+  if(st!=null && selected.has(st)){
+    const secs=[];
+    FILES.filter(f=>f.station===st&&f.kind!=='boxmap'&&f.kind!=='complex').forEach(f=>{
+      (f.items||[]).forEach((items,pi)=>{
+        if(f.rows.some(r=>r.page===pi+1)) return; // index pages are not running routes
+        if(!routePageSet(f).has(pi)) return; // only real running-route pages (map sheets also show street names)
+        parts.forEach(p=>findRouteSections(f,pi,p).forEach(s=>secs.push(s)));
+      });
+    });
+    secs.sort((a,b)=>(b.score-a.score)||((b.file.kind==='routes')-(a.file.kind==='routes')));
+    res.route=secs[0]||null; res.routeAlt=secs.slice(1,4);
+    const R=res.route, bestIdx=hits[0]?hits[0].score:0;
+    if(R&&R.blkMatch&&(R.score>bestIdx||!res.boxRow)){
+      const pseudo={file:R.file,row:{page:R.page,map:R.map,mapLink:R.mapLink,complex:R.detail,detailLink:R.detailLink,street:R.street,blk:R.blk},hitBlock:true,score:R.score};
+      if(R.map&&(!res.boxRow||R.score>bestIdx)) res.boxRow=pseudo;
+      if(R.detail&&(!res.detail||R.score>bestIdx)){
+        const same=res.rows.find(r=>detKey(r.row.complex)===detKey(R.detail)||(isDetailMap(r.row.map)&&detKey(r.row.map)===detKey(R.detail)));
+        res.detail=same?{item:same,id:same.row.complex||same.row.map,link:same.row.complex?same.row.detailLink:same.row.mapLink,label:'Detail '+(same.row.complex||same.row.map)}
+                       :{item:pseudo,id:R.detail,link:R.detailLink,label:'Detail '+R.detail};
+      }
+    }
+    if(R&&R.blkMatch&&R.detail&&res.detail&&detKey(R.detail)!==detKey(res.detail.id)){
+      const pseudo={file:R.file,row:{page:R.page,complex:R.detail,detailLink:R.detailLink},hitBlock:true,score:R.score};
+      res.detailAlt={item:pseudo,id:R.detail,link:R.detailLink,label:'Detail '+R.detail+' — running route page differs from index ('+res.detail.id+')'};
+    }
+    // pages that mention the street (for the "all pages" list)
+    FILES.filter(f=>f.station===st&&f.kind!=='boxmap'&&f.kind!=='complex').forEach(f=>{
+      f.pages.forEach((txt,i)=>{
+        const T=normStreet(txt.replace(/\n/g,' \n '));
+        const hitPart=parts.find(p=>{const n=normStreet(p.street);return n.length>3&&(T.includes(n)||T.includes(stripSuffix(n)+' '))});
+        if(hitPart){const indexPage=f.rows.some(r=>r.page===i+1); res.routePages.push({file:f,page:i+1,part:hitPart,indexPage})}
+      });
+    });
+    res.routePages.sort((a,b)=>a.indexPage-b.indexPage);
+    // fallback map-page search (used when the index row has no working hyperlink)
+    const ids=[]; if(res.boxRow&&isBoxId(res.boxRow.row.map)) ids.push(res.boxRow.row.map);
+    if(res.route&&res.route.map) ids.push(res.route.map);
+    const bx=String(inc.box||'').replace(/\D/g,''); if(bx.length===4) ids.push(bx,bx.slice(0,2)+'-'+bx.slice(2));
+    res.boxMap=findMapPages(st,[...new Set(ids)],'boxmap');
+    if(res.detail) res.complexMap=findMapPages(st,[res.detail.id].filter(Boolean),'complex',res.detail.name);
+  }
+  res.matched=res.rows.length>0||!!(res.route&&res.route.blkMatch);
+  res.routeText=res.route?{lines:[res.route.street+' '+res.route.blk+(res.route.map?'  '+res.route.map:'')+(res.route.detail?'  '+res.route.detail:''),...(res.route.start?[/^FROM\b/i.test(res.route.start)?res.route.start:'From '+res.route.start]:[]),...res.route.steps],file:res.route.file,page:res.route.page}:routeExcerpt(res);
+  return res;
+}
+// Running-route page layout (MCFRS mapbook): blue STREET heading at left, start point centred on the same line.
+// Under it, one or more block groups separated by a blank line. Each group lists BLK / Map Page (detail maps in blue)
+// on the left and its (R)/(L) turns on the right.
+const RP_CACHE=new WeakMap(), HDR_CACHE=new WeakMap();
+function routePageSet(f){
+  if(RP_CACHE.has(f)) return RP_CACHE.get(f);
+  const s=new Set(); let run=false;
+  f.pages.forEach((t,i)=>{
+    if(f.rows.some(r=>r.page===i+1)){run=false;return}
+    const steps=(t.match(/\b(LEFT|RIGHT)\s*(ON|ONTO|FOR|OF|[-–])\s/gi)||[]).length, mk=(t.match(/\(\s*[RL]\s*\)/g)||[]).length, head=/RUNNING\s*ROUTES?/i.test(t);
+    if(mk>=2||(head&&steps>=1)||steps>=4){s.add(i);run=true}
+    else if(head){run=true}
+    else if(run&&steps>=2){s.add(i)}   // continuation page of the same run (header printed once per letter)
+    else run=false;
+  });
+  RP_CACHE.set(f,s); return s;
+}
+function tableHeader(f,pi){ // column titles from this page or the nearest earlier route-table page
+  let c=HDR_CACHE.get(f); if(!c){c={};HDR_CACHE.set(f,c)} if(pi in c) return c[pi];
+  let res=null;
+  for(let k=pi;k>=Math.max(0,pi-25)&&!res;k--){
+    const its=((f.items||[])[k]||[]).map(a=>({str:a[0],x:a[1],y:a[2],w:a[3],h:a[4]}));
+    const hl=groupLines(its).find(l=>{const ph=phrases(l.items).map(p=>p.t.toUpperCase());return ph.includes('RUNNING ROUTE')&&ph.some(t=>/^STREET( NAME)?$/.test(t))});
+    if(hl) res={ph:phrases(hl.items),y:k===pi?hl.y:null};
+    else if(k<pi&&!routePageSet(f).has(k)) break;
+  }
+  c[pi]=res; return res;
+}
+const STEP_RX=/^(LEFT|RIGHT|STRAIGHT|CONTINUE|TAKE|ONTO|U-?TURN|BEAR|KEEP|ENTER|GO|EXIT|FOLLOW|TURN|HEAD|PROCEED|CROSS|STAY|THRU|THROUGH|VIA|USE|AT|FROM|TO)\b|^\(\s*[RL]\s*\)/i;
+function tableRoutes(f,pi,part,lines,th,linkFor,rect){
+  const ph=th.ph, X=t=>(ph.find(p=>t.test(p.t))||{}).x, topY=th.y==null?Infinity:th.y-2;
+  const sx=X(/^STREET( NAME)?$/i)??0, rx=X(/^RUNNING ROUTE$/i), mx=X(/^MAP$/i)??Infinity;
+  const b1=(sx+rx)/2, b2=mx===Infinity?Infinity:(rx+mx)/2; // titles are centred over their columns
+  const col=c=>c.x<b1?'S':(c.x<b2?'R':'M');
+  // superscript ordinals ("1" + raised "ST") sit on their own line just above: fold them into the line below
+  const ls=lines.filter(l=>l.y<topY).map(l=>({...l,cl:l.cl.map(c=>({...c}))}));
+  for(let j=0;j<ls.length-1;j++){
+    if(ls[j].cl.length&&ls[j].cl.every(c=>/^(ST|ND|RD|TH)$/i.test(c.text))&&ls[j].y-ls[j+1].y<12){
+      ls[j].cl.forEach(sc=>{const tgt=ls[j+1].cl.filter(c=>col(c)===col(sc)&&c.x<sc.x).pop();if(tgt)tgt.text=tgt.text.replace(/(\d+)(?!.*\d)/,'$1'+sc.text.toUpperCase())});
+      ls[j].cl=[];
+    }
+  }
+  const body=ls.filter(l=>l.cl.length).map(l=>{const o={l,S:[],R:[],M:[]};l.cl.forEach(c=>o[col(c)].push(c));o.s=o.S.map(c=>c.text).join(' ').trim();o.r=o.R.map(c=>c.text).join(' ').trim();o.m=o.M.map(c=>c.text).join(' ').trim();return o});
+  const isHd=o=>o.s&&!/^(\d|UNIT\b)/i.test(o.s)&&/[A-Z]{2}/.test(o.s)||/^\d+\s*(ST|ND|RD|TH)\b/i.test(o.s);
+  // wrapped street names: "COLUMBIA" / "BOULEVARD"
+  for(let j=0;j<body.length-1;j++){const a=body[j],b=body[j+1];
+    if(a.s&&b.s&&/^[A-Z]+$/.test(b.s)&&(SUFFIX[b.s]||Object.values(SUFFIX).includes(b.s))&&!/^(\d|UNIT\b)/i.test(a.s)&&!/\b(AVE|AVENUE|ST|STREET|RD|ROAD|DR|DRIVE|CT|COURT|LN|LANE|PL|PLACE|BLVD|BOULEVARD|WAY|TER|TERRACE|CIR|CIRCLE|PKWY|PARKWAY|HWY|HIGHWAY)$/.test(a.s)){
+      a.s+=' '+b.s; a.S=a.S.concat(b.S); b.s=''; b.S=[];}}
+  const pk=new Set(streetKeys(part.street)), out=[];
+  body.forEach((o,i)=>{
+    if(!isHd(o)) return;
+    const name=o.s.replace(/\s+\d[\d\s,&–-]*$/,''); // "2ND AVENUE 8700-8900" style heading lines keep the street only
+    if(!streetKeys(name).some(k=>pk.has(k))) return;
+    let end=body.length; for(let j=i+1;j<body.length;j++) if(isHd(body[j])){end=j;break}
+    const sec=body.slice(i,end); const gaps=[]; for(let j=1;j<sec.length;j++) gaps.push(sec[j-1].l.y-sec[j].l.y);
+    const med=gaps.length?[...gaps].sort((a,b)=>a-b)[Math.floor(gaps.length/2)]:12;
+    const groups=[]; sec.forEach((x,j)=>{if(j===0||gaps[j-1]>med*1.5)groups.push([]);groups[groups.length-1].push(x)});
+    let prevSteps=[], prevMap='', prevLink=null;
+    groups.forEach(g=>{
+      let steps=g.map(x=>x.r).filter(Boolean); const label=steps.length&&!steps.some(t=>STEP_RX.test(t))?steps.join(' '):'';
+      if(!steps.length||label) steps=prevSteps; else prevSteps=steps;
+      const ents=[];
+      g.forEach(x=>{
+        const blkTxt=(x===sec[0]?(o.s.match(/\s(\d[\d\s,&–-]*)$/)||[])[1]:(/^(\d|UNIT\b)/i.test(x.s)?x.s:''))||'';
+        const mc=x.M[0];
+        if(x.m&&isBoxId(x.m)){prevMap=x.m;prevLink=mc&&linkFor(mc)}
+        if(blkTxt) ents.push({blk:blkTxt.trim(),m:x.m,mc,x});
+        else if(x.m&&ents.length&&!ents[ents.length-1].m){ents[ents.length-1].m=x.m;ents[ents.length-1].mc=mc}
+      });
+      const whole=!ents.length; // no block numbers listed = the route for the whole street
+      if(whole){if(g!==groups[0]||!steps.length) return; ents.push({blk:'',m:g[0].m,mc:g[0].M[0],x:g[0]})}
+      let best=null; ents.forEach(e=>{const sc=whole?0.5:blkScore(part.num,e.blk);if(sc&&(!best||sc>best.sc))best={e,sc}});
+      const e=best?best.e:ents[0];
+      const isDet=isDetailMap(e.m);
+      const map=isDet?prevMap:(e.m||prevMap), mapLink=isDet?prevLink:(e.mc?linkFor(e.mc):prevLink);
+      const hb=rect(o.S.flatMap(c=>c.items)), gi=g.flatMap(x=>x.l.items), gb=rect(gi);
+      const rects=[hb,rect(e.x.l.items),...g.filter(x=>x.R.length&&STEP_RX.test(x.r)).map(x=>rect(x.R.flatMap(c=>c.items)))];
+      out.push({file:f,page:pi+1,street:name,start:label,blk:e.blk,map,mapLink,detail:isDet?e.m:'',detailLink:isDet&&e.mc?linkFor(e.mc):null,
+        steps,score:best?best.sc:0,blkMatch:!!best,part,band:gb,crop:[Math.min(hb[0],gb[0]),Math.min(hb[1],gb[1]),Math.max(hb[2],gb[2]),Math.max(hb[3],gb[3])],rects});
+    });
+  });
+  return out;
+}
+const ENTRY_RX=/^(UNIT\b|\d+(?!\s*(ST|ND|RD|TH)\b)(?!\d))/i, MAPLBL_RX=/^(street|box|lw|detail|site)?\s*maps?\s*[-:–]?\s*(\d|[A-Z]?\d)/i,
+      MAPTITLE_RX=/^(street|box|lw|detail|site)\s*maps?\s*:?$/i; // a bare "Street Map" / "Box Map" title over a list of "BLK - MAP" rows
+function proseRoutes(f,pi,part,lines,rect,linkFor){
+  const W=((f.sizes||[])[pi]||[612])[0], mid=W/2;
+  // two-column pages: a second column starting at a steady x in the right half
+  const rx=lines.flatMap(l=>l.cl.filter(c=>c.x>mid-40).map(c=>Math.round(c.x/6)*6));
+  const mode=Object.entries(rx.reduce((a,x)=>(a[x]=(a[x]||0)+1,a),{})).sort((a,b)=>b[1]-a[1])[0];
+  const split=mode&&mode[1]>=6&&lines.filter(l=>l.cl.some(c=>c.x<mid-80)).length>=6?(+mode[0]-8):null;
+  const half=(l,left)=>{const cl=l.cl.filter(c=>left?c.x<split:c.x>=split);return {...l,cl,items:cl.flatMap(c=>c.items)}};
+  const streams=split==null?[lines]:[lines.map(l=>half(l,true)).filter(l=>l.cl.length),lines.map(l=>half(l,false)).filter(l=>l.cl.length)];
+  const pk=new Set(streetKeys(part.street)), out=[];
+  const txt=l=>l.cl.map(c=>c.text).join(' ').replace(/\s+/g,' ').trim();
+  const headTxt=l=>l.cl[0].text.replace(/\s*\(.*$/,'').replace(/\s+\d[\d\s-]*$/,'').trim();
+  const isHeadLine=l=>{const t=l.cl[0].text;return /[A-Za-z]{3}/.test(t)&&!ENTRY_RX.test(t)&&!STEP_RX.test(t)&&!MAPLBL_RX.test(t)&&!MAPTITLE_RX.test(t)&&!/^(from|box\s*area|section|station|modified|page)\b/i.test(t)};
+  streams.forEach(ls=>{
+    ls.forEach((ln,li)=>{
+      if(!isHeadLine(ln)) return;
+      if(!streetKeys(headTxt(ln)).some(k=>pk.has(k))) return;
+      const hx=ln.cl[0].x; let end=ls.length;
+      for(let j=li+1;j<ls.length;j++){const d=ls[j];if(Math.abs(d.cl[0].x-hx)<8&&isHeadLine(d)&&!streetKeys(headTxt(d)).some(k=>pk.has(k))){end=j;break}}
+      const ents=[]; let cur=null, mode=null;
+      const ensure=l=>{if(!cur){cur={blk:'',map:'',smap:'',detail:'',steps:[],lines:[],whole:true};ents.push(cur)}return cur};
+      // heading line may carry the block ("ACORN HOLLOW LANE 12900")
+      ls.slice(li+1,end).forEach(l=>{
+        const t=txt(l); if(!t) return;
+        if(MAPTITLE_RX.test(t)){mode=/^box/i.test(t)?'box':'map';ensure(l).lines.push(l);return}
+        const lm=mode&&t.match(/^(.*?\d.*?)\s+[-–]\s+([0-9]{1,3}[A-Z]?(?:\s*,\s*[0-9]{1,3}[A-Z]?)*)$/i);
+        if(lm&&ENTRY_RX.test(t)){const e=ensure(l);(e[mode==='box'?'boxRows':'mapRows']=e[mode==='box'?'boxRows':'mapRows']||[]).push({blk:lm[1].trim(),v:lm[2].split(',')[0].trim(),l});e.lines.push(l);return}
+        if(!ENTRY_RX.test(t)) mode=null;
+        if(ENTRY_RX.test(t)){
+          const m=t.match(/^(.*?)\s*(?:\/\s*)?\bmaps?\s*[-:]?\s*([0-9]{1,3}(?:\s*-\s*[0-9A-Z]{1,4})?[A-Z]?)\s*(?:[\/–-]\s*)?(.*)$/i);
+          cur={blk:(m?m[1]:t.split(/\s*\//)[0]).replace(/\s*\/\s*$/,'').trim(),map:m?m[2].replace(/\s/g,''):'',smap:'',detail:'',steps:[],lines:[l],whole:false};
+          if(m&&m[3]&&STEP_RX.test(m[3])) cur.steps.push(...m[3].split(/[,;]\s*/).filter(Boolean));
+          cur.mapCl=l.cl.find(c=>/map/i.test(c.text))||null; ents.push(cur); return;
+        }
+        const ml=t.match(MAPLBL_RX);
+        if(ml){const e=ensure(l); const v=(t.match(/[-:–]\s*([0-9]{1,3}[A-Z]?(?:\s*-\s*[0-9A-Z]+)?)/)||t.match(/maps?\s*([0-9]{1,3}[A-Z]?)/i)||[])[1]||'';
+          if(/^box/i.test(t)) e.smap=e.smap||v; else if(/^(lw|detail|site)/i.test(t)) e.detail=e.detail||v; else e.map=e.map||v;
+          e.lines.push(l); e.mapCl=e.mapCl||l.cl[0]; return}
+        if(/^(from|box\s*area|section)\b/i.test(t)) return;
+        const e=cur||ensure(l); e.steps.push(...t.split(/;\s*/).filter(Boolean)); e.lines.push(l);
+      });
+      // a heading that carries its own block number
+      const hb=ln.cl[0].text.match(/\s(\d[\d\s-]*)$/); if(hb&&ents.length&&ents[0].whole) {ents[0].blk=hb[1].trim();ents[0].whole=false}
+      ents.forEach((e,i)=>{if(!e.steps.length){const nx=ents.slice(i+1).find(x=>x.steps.length&&!x.blk);const pv=ents.slice(0,i).reverse().find(x=>x.steps.length);if(pv&&e.lines.length<=2&&!nx)e.steps=pv.steps}});
+      // "Street Map" / "Box Map" lists: pick the rows covering the address
+      ents.forEach(e=>{
+        const pick=rows=>{let b=null;(rows||[]).forEach(r=>{const sc=blkScore(part.num,r.blk);if(sc&&(!b||sc>b.sc))b={r,sc}});return b};
+        const bm=pick(e.mapRows), bb=pick(e.boxRows);
+        if(bm){e.blk=bm.r.blk;e.map=bm.r.v;e.whole=false;e.hit=bm}
+        if(bb){e.smap=bb.r.v;if(!bm){e.blk=bb.r.blk;e.whole=false}}
+        if(bm||bb){const skip=new Set([...(e.mapRows||[]),...(e.boxRows||[])].filter(r=>r!==(bm&&bm.r)&&r!==(bb&&bb.r)).map(r=>r.l));
+          e.lines=e.lines.filter(l=>!skip.has(l)&&!MAPTITLE_RX.test(txt(l)))} // highlight only the matching rows
+        if((e.mapRows||e.boxRows)&&!bm&&!bb){e.blk=(e.mapRows||e.boxRows).map(r=>r.blk).join(', ');e.whole=false}
+      });
+      let best=null; ents.forEach(e=>{const sc=e.whole?0.5:blkScore(part.num,e.blk);if(sc&&(!best||sc>best.sc))best={e,sc}});
+      if(!ents.length) return; const e=best?best.e:ents[0];
+      if(!e.steps.length){const nx=ents.slice(ents.indexOf(e)+1).find(x=>x.steps.length);if(nx){e.steps=nx.steps;e.lines=e.lines.concat(nx.lines)}}
+      const its=e.lines.flatMap(l=>l.items); if(!its.length) return;
+      const hR=rect(ln.cl[0].items), gb=rect(its);
+      out.push({file:f,page:pi+1,street:headTxt(ln),start:'',blk:e.blk,map:e.map,smap:e.smap,detail:e.detail,mapLink:e.mapCl?linkFor(e.mapCl):null,
+        steps:e.steps.map(s=>s.trim()).filter(Boolean),score:best?best.sc:0,blkMatch:!!best,part,
+        band:gb,crop:[Math.min(hR[0],gb[0]),Math.min(hR[1],gb[1]),Math.max(hR[2],gb[2]),Math.max(hR[3],gb[3])],rects:[hR,...e.lines.map(l=>rect(l.items))]});
+    });
+  });
+  return out;
+}
+function findRouteSections(f,pi,part){
+  const raw=(f.items||[])[pi]; if(!raw||!raw.length) return [];
+  const items=raw.map(a=>({str:a[0],x:a[1],y:a[2],w:a[3],h:a[4]}));
+  const lines=groupLines(items).map(l=>{const cl=[];l.items.forEach(it=>{const last=cl[cl.length-1];
+      if(last&&it.x-(last.x2)<9){last.items.push(it);last.x2=Math.max(last.x2,it.x+it.w)}else cl.push({x:it.x,x2:it.x+it.w,items:[it]})});
+    cl.forEach(c=>c.text=c.items.map(i=>i.str).join(' ').replace(/\s+/g,' ').trim());
+    return {y:l.y,h:Math.max(...l.items.map(i=>i.h||8)),items:l.items,cl}});
+  const n=normStreet(part.street), base=stripSuffix(n);
+  const sq=t=>normStreet(t).replace(/\s+/g,'');           // headings sometimes have stray spaces ("UNIVE RSITY")
+  const isHead=t=>/[A-Z]{3}/.test(t)&&t===t.toUpperCase()&&!/\d/.test(t)&&!/^\(/.test(t);
+  const links=((f.links||[])[pi]||[]);
+  const linkFor=c=>links.find(l=>{const [x1,y1,x2,y2]=l.rect;const cy=c.items[0].y+(c.items[0].h||8)/2;return c.x<x2&&c.x2>x1&&cy>=Math.min(y1,y2)-3&&cy<=Math.max(y1,y2)+3});
+  const rect=its=>[Math.min(...its.map(i=>i.x)),Math.min(...its.map(i=>i.y))-1,Math.max(...its.map(i=>i.x+(i.w||0))),Math.max(...its.map(i=>i.y+(i.h||8)))];
+  const out=[];
+  const th=tableHeader(f,pi);
+  if(th) return tableRoutes(f,pi,part,lines,th,linkFor,rect);
+  // pages without (R)/(L) markers: prose-style routes (Stations 2, 18, 24, 25 …)
+  if(((f.pages[pi]||'').match(/\(\s*[RL]\s*\)/g)||[]).length<2) return proseRoutes(f,pi,part,lines,rect,linkFor);
+  lines.forEach((ln,li)=>{
+    let c0=ln.cl[0]; if(!c0||!isHead(c0.text)) return;
+    const nx=lines[li+1]&&lines[li+1].cl[0];
+    if(nx&&Math.abs(nx.x-c0.x)<14&&isHead(nx.text)&&ln.y-lines[li+1].y<(ln.h||10)*1.6){ // heading wrapped onto a second line
+      const t2=normStreet(c0.text+' '+nx.text), pk=new Set(streetKeys(part.street));
+      if(streetKeys(c0.text+' '+nx.text).some(k=>pk.has(k))||stripSuffix(t2)===base) c0={...c0,text:c0.text+' '+nx.text,items:c0.items.concat(nx.items),x2:Math.max(c0.x2,nx.x2),wrap:true};
+    }
+    // heading may wrap onto the start-point text; compare without spaces and suffix variations
+    const t=normStreet(c0.text);
+    const pk=new Set(streetKeys(part.street)), hk=streetKeys(c0.text).concat(streetKeys(c0.text.replace(/\s+(?=[A-Z]{1,3}\b)/g,'')));
+    if(!(hk.some(k=>pk.has(k))||stripSuffix(t)===base||sq(c0.text)===n.replace(/\s/g,''))) return;
+    const hx=c0.x; let end=lines.length;
+    for(let j=li+(c0.wrap?2:1);j<lines.length;j++){const c=lines[j].cl[0];if(c&&Math.abs(c.x-hx)<14&&isHead(c.text)){end=j;break}}
+    const sec=lines.slice(li,end);
+    const turnXs=sec.flatMap(l=>l.cl.filter(c=>c.x>hx+40&&/^(\(\s*[A-Z]{1,3}\s*\)|Onto\b)/i.test(c.text)).map(c=>c.x));
+    const startCl=ln.cl.slice(1).concat(c0.wrap?lines[li+1].cl.slice(1):[]);
+    const rightX=Math.min(...turnXs,...startCl.map(c=>c.x),Infinity);
+    const L=l=>l.cl.filter(c=>c.x<rightX-4), R=l=>l.cl.filter(c=>c.x>=rightX-4);
+    const rtext=l=>R(l).map(c=>c.text).join(' ').trim();
+    // split the body into block groups at vertical gaps
+    let body=sec.slice(c0.wrap?2:1);
+    // start point that wraps ("PINEY BRANCH RD & GROVE" / "STREET"): leading capital-only lines with nothing on the left
+    const isCont=l=>!L(l).length&&/^[A-Z0-9 &.'\/-]+$/.test(rtext(l))&&!/^\(/.test(rtext(l));
+    const lead=[]; while(body.length&&isCont(body[0])) lead.push(body.shift());
+    const gaps=[]; for(let j=1;j<body.length;j++) gaps.push(body[j-1].y-body[j].y);
+    const med=gaps.length?[...gaps].sort((a,b)=>a-b)[Math.floor(gaps.length/2)]:12;
+    const isStartHdr=l=>{const t=rtext(l);return !!t&&isHead(t)}; // capitals, no "(R)" marker = a new start point
+    let groups=[]; body.forEach((l,j)=>{if(j===0||gaps[j-1]>med*1.5||(L(l).length&&isStartHdr(l)))groups.push([]);groups[groups.length-1].push(l)});
+    // a group with no BLK entries (turns pushed below a gap) belongs to the group above
+    groups=groups.reduce((acc,g)=>{if(acc.length&&!g.some(l=>L(l).length&&/^(\d|UNIT)/i.test(L(l)[0].text))&&!isStartHdr(g[0]))acc[acc.length-1].push(...g);else acc.push(g);return acc},[]);
+    groups.forEach(g=>{
+      // own start point only when the group opens with "BLK … START POINT" on one line (wrapped lines continue it)
+      let gStart=null; let hi=g.findIndex(l=>L(l).length&&isStartHdr(l));
+      if(hi<0&&g!==groups[0]&&isStartHdr(g[0])&&!L(g[0]).length) hi=0;
+      if(hi>=0){const parts=[rtext(g[hi])];for(let k=hi+1;k<g.length&&!(L(g[k]).length&&!isStartHdr(g[k]))&&isStartHdr(g[k])&&!L(g[k]).length;k++)parts.push(rtext(g[k]));gStart=parts.join(' ')}
+      const entries=[];
+      g.forEach(l=>{
+        const lc=L(l); if(!lc.length) return;
+        const first=lc[0];
+        if(/^(\d|UNIT)/i.test(first.text)&&first.x<hx+30){ // BLK in first column
+          const rest=lc.slice(1); const e={blk:first.text,map:'',detail:'',line:l,cls:lc};
+          rest.forEach(c=>{if(isBoxId(c.text)&&!e.map){e.map=c.text;e.mapLink=linkFor(c)}else if(c.text&&!e.detail){e.detail=c.text.replace(/^MAP\s*/i,'');e.detailLink=linkFor(c)}});
+          // "16-02 2A" can be in one cluster
+          const mm=first.text.match(/^(.*?)\s+(\d{1,2}\s*[-–]\s*\d{1,3})\s*([0-9]{1,2}[A-Z](-\d)?)?$/i);
+          if(mm&&!e.map){e.blk=mm[1];e.map=mm[2];if(mm[3])e.detail=mm[3]}
+          entries.push(e);
+        } else if(entries.length){ // map/detail on its own line belongs to the entry above
+          const e=entries[entries.length-1];
+          lc.forEach(c=>{if(isBoxId(c.text)&&!e.map){e.map=c.text;e.mapLink=linkFor(c)}else if(!e.detail){e.detail=c.text;e.detailLink=linkFor(c)}});
+          e.cls=e.cls.concat(lc);
+        }
+      });
+      let lastMap='',lastMapLink=null; entries.forEach(e=>{if(e.map){lastMap=e.map;lastMapLink=e.mapLink}else{e.map=lastMap;e.mapLink=lastMapLink}});
+      const steps=g.filter(l=>!isStartHdr(l)).map(rtext).filter(Boolean);
+      if(!entries.length&&!steps.length) return;
+      let best=null; entries.forEach(e=>{const sc=blkScore(part.num,e.blk);if(sc&&(!best||sc>best.sc))best={e,sc}});
+      if(!entries.length&&steps.length&&groups.length===1) best={e:{blk:'',map:'',detail:'',cls:[]},sc:0.5}; // whole-street route
+      const gi=g.flatMap(l=>l.items);
+      const rects=[rect(c0.items),...startCl.map(c=>rect(c.items)),...(gStart?[]:lead.map(l=>rect(l.items)))];
+      if(best&&best.e.cls.length){rects.push(rect(best.e.cls.flatMap(c=>c.items)))}
+      g.forEach(l=>{const rc=R(l);if(rc.length)rects.push(rect(rc.flatMap(c=>c.items)))});
+      const hdr=rect(sec[0].items), gb=rect(gi);
+      // a wrapped start point ("PINEY BRANCH RD & GROVE" / "STREET") continues on header-only lines
+      const secStart=[startCl.map(c=>c.text).join(' '),...lead.map(rtext)].join(' ').trim();
+      out.push({file:f,page:pi+1,street:c0.text,start:gStart||secStart,
+        blk:best?best.e.blk:(entries[0]?entries.map(e=>e.blk).join(', '):''),map:best?best.e.map:(entries[0]&&entries[0].map)||'',
+        detail:best?best.e.detail:'',mapLink:best&&best.e.mapLink,detailLink:best&&best.e.detailLink,
+        steps,score:best?best.sc:0,blkMatch:!!best,part,
+        band:gb,crop:[Math.min(hdr[0],gb[0]),Math.min(hdr[1],gb[1]),Math.max(hdr[2],gb[2]),Math.max(hdr[3],gb[3])],rects});
+    });
+  });
+  return out;
+}
+function mapIdRx(id){
+  const s=String(id).trim().toUpperCase();
+  const m=s.match(/^0?(\d{1,2})\s*[-–_ ]\s*([A-Z]{0,2})\s*0*(\d+)([A-Z]?)$/);
+  if(m) return new RegExp(`(?<![A-Z0-9])0?${m[1]}\\s*[-–_. ]\\s*${m[2]}\\s*0*${m[3]}${m[4]}(?![A-Z0-9])`,'i');
+  if(/^\d{4}$/.test(s)) return new RegExp(`(?<![0-9])${s}(?![0-9])`);
+  if(/^[A-Z0-9-]{2,8}$/.test(s)) return new RegExp(`(?<![A-Z0-9])${s.replace(/-/g,'\\s*-\\s*')}(?![A-Z0-9])`,'i');
+  return null;
+}
+// Find the page(s) showing a map id. File name hits rank highest, then page text; the wanted kind of file gets a bonus.
+function findMapPages(st,ids,kind,name){
+  const rxs=ids.map(mapIdRx).filter(Boolean); const out=[];
+  const nameKey=name?normStreet(name):null;
+  FILES.filter(f=>f.station===st||!f.station).forEach(f=>{
+    const bonus=f.kind===kind?40:(f.kind==='routes'||f.kind==='index'?-20:0);
+    const base=f.name.replace(/\.[a-z0-9]+$/i,'');
+    rxs.forEach((rx,ri)=>{
+      if(rx.test(base)){out.push({file:f,page:1,score:200-ri*10+bonus});return}
+      f.pages.forEach((t,i)=>{
+        if(f.rows.some(r=>r.page===i+1)) return; // skip index pages
+        const head=t.split('\n').slice(0,6).join(' ');
+        if(rx.test(head)) out.push({file:f,page:i+1,score:120-ri*10+bonus});
+        else if(rx.test(t)) out.push({file:f,page:i+1,score:80-ri*10+bonus});
+      });
+    });
+    if(nameKey&&nameKey.length>4&&f.kind===kind) f.pages.forEach((t,i)=>{if(normStreet(t).includes(nameKey))out.push({file:f,page:i+1,score:60})});
+  });
+  const seen=new Set(); return out.sort((a,b)=>b.score-a.score).filter(p=>{const k=p.file.id+'|'+p.page;if(seen.has(k))return false;seen.add(k);return true}).slice(0,3);
+}
+// Lines of the written running route for this street (narrative page first; falls back to the index row)
+function routeExcerpt(m){
+  const p=(m.routePages||[]).find(x=>!x.indexPage);
+  if(p){
+    const lines=p.file.pages[p.page-1].split('\n'); const key=stripSuffix(normStreet(p.part.street));
+    const i=lines.findIndex(l=>normStreet(l).includes(key));
+    if(i>=0){
+      const out=[lines[i]];
+      for(let j=i+1;j<lines.length&&out.length<10;j++){
+        const l=lines[j]; if(!l.trim())break;
+        if(/^[A-Z0-9 .'-]{3,}(ST|AVE|RD|DR|LN|CT|PL|WAY|HWY|BLVD|PKWY|CIR|TER|PIKE)\b.*[:(]/.test(l.toUpperCase())&&!normStreet(l).includes(key))break; // next street's route
+        out.push(l);
+      }
+      return {lines:out,file:p.file,page:p.page};
+    }
+  }
+  return null;
+}
+
+
+/* ================= CAD POLLING ================= */
+let INCIDENTS=[]; const seen=new Set(LS.get('seenIncidents',[])); let first=true; const ALERTS=new Map();
+function incKey(i){return i.date+'|'+i.address}
+async function poll(){
+  try{
+    const r=await fetch(CAD_URL+'?_='+Date.now(),{cache:'no-store'});
+    if(!r.ok) throw new Error('HTTP '+r.status);
+    const html=await r.text();
+    const doc=new DOMParser().parseFromString(html,'text/html');
+    const rows=[...doc.querySelectorAll('tr')].filter(tr=>tr.querySelectorAll('td').length>=6);
+    if(!doc.querySelector('table')) throw new Error('no table in response');
+    INCIDENTS=rows.map(tr=>{const c=[...tr.querySelectorAll('td')].map(td=>td.textContent.replace(/ /g,' ').trim());
+      return {date:c[0],address:c[1],code:c[2],description:c[3],units:c[4],box:c[5],station:boxStation(c[5])}});
+    setStatus(true,'live',`${INCIDENTS.length} calls · updated ${new Date().toLocaleTimeString()}`);
+    processIncidents();
+  }catch(e){setStatus(false,'offline','CAD read failed: '+e.message+' (retrying every 2 s)')}
+  finally{setTimeout(poll,POLL_MS)}
+}
+function setStatus(ok,t,tip){$('#status').className=ok?'ok':'err';$('#statusText').textContent=t;$('#status').title=tip||''}
+/* ===== Apparatus I'm riding: alert only when one of my units is on the call ===== */
+const RIDE={on:LS.get('rideOn',false),units:LS.get('rideUnits',[])};
+const unitTokens=s=>String(s||'').toUpperCase().split(/[\s,]+/).filter(Boolean);
+function myUnits(inc){const set=new Set(RIDE.units);return unitTokens(inc.units).filter(u=>set.has(u))}
+function saveRide(){LS.set('rideOn',RIDE.on);LS.set('rideUnits',RIDE.units);renderRide();poSync();
+  // re-evaluate the board under the new rule without re-alerting calls already showing
+  INCIDENTS.forEach(i=>seen.add(incKey(i))); ALERTS.clear(); alertSig=''; if(INCIDENTS.length) processIncidents()}
+function suggestedUnits(){
+  const hs=String(+LS.get('homeSt',19)).padStart(2,'0'), base=['E','PE','T','AT','TK','RS','R','A','M','BC','EMS'].map(p=>p+'7'+hs);
+  const seenOnBoard=INCIDENTS.flatMap(i=>unitTokens(i.units)).filter(u=>new RegExp('7'+hs+'[A-Z]?$').test(u));
+  return [...new Set([...base,...seenOnBoard])].filter(u=>!RIDE.units.includes(u)).sort();
+}
+function renderRide(){
+  const chip=$('#rideChip'); if(chip){chip.className='ridechip '+(RIDE.on&&RIDE.units.length?'on':'off');
+    chip.innerHTML=RIDE.units.length?`🚒 ${esc(RIDE.units.join(' · '))} <b>${RIDE.on?'ON':'OFF'}</b>`:'🚒 Set apparatus'}
+  const box=$('#rideBox'); if(!box) return;
+  $('#rideOn').checked=RIDE.on;
+  $('#rideSel').innerHTML=RIDE.units.length?RIDE.units.map(u=>`<span class="uchip sel">${esc(u)} <button data-rm="${esc(u)}" title="Remove">×</button></span>`).join(''):'<span class="muted small">None selected</span>';
+  $('#rideSug').innerHTML=suggestedUnits().map(u=>`<button class="uchip" data-add="${esc(u)}">+ ${esc(u)}</button>`).join('');
+}
+document.addEventListener('click',e=>{
+  const a=e.target.closest('[data-add]'), r=e.target.closest('[data-rm]');
+  if(a){RIDE.units=[...new Set([...RIDE.units,a.dataset.add])];saveRide()}
+  if(r){RIDE.units=RIDE.units.filter(u=>u!==r.dataset.rm);if(!RIDE.units.length)RIDE.on=false;saveRide()}
+});
+function processIncidents(){
+  const newOnes=[];
+  INCIDENTS.forEach(inc=>{
+    inc.match=matchIncident(inc);
+    const k=incKey(inc);
+    const alertWorthy=RIDE.on?myUnits(inc).length>0:(inc.match.matched||($('#optStreetOnly').checked&&inc.match.streetOnly.length&&!(FILES.some(f=>f.station===inc.station))));
+    if(alertWorthy){
+      const isNew=!ALERTS.has(k); ALERTS.set(k,inc);
+      if(isNew && !seen.has(k) && (!first||$('#optStartup').checked)) newOnes.push(inc);
+      if(isNew && first && !$('#optStartup').checked) seen.add(k);
+    }
+  });
+  newOnes.forEach(inc=>{seen.add(incKey(inc));fireAlert(inc)});
+  LS.set('seenIncidents',[...seen].slice(-500));
+  first=false; renderCad(newOnes); renderAlerts();
+}
+function rematch(){if(INCIDENTS.length){INCIDENTS.forEach(i=>i.match=matchIncident(i));ALERTS.forEach((inc,k)=>inc.match=matchIncident(inc));renderCad([]);renderAlerts()}}
+function matchBadge(m){
+  if(m.matched) return `<span class="pill red">STA ${m.station}${m.blockHit?' · block':''}</span>`;
+  if(m.streetOnly.length) return `<span class="pill amber" title="Street is in your files but box # station differs">street only</span>`;
+  return '';
+}
+function shortDate(d){const m=String(d).match(/^(\d\d\/\d\d)\s+(\d\d:\d\d)/);return m?m[1]+' '+m[2]:d}
+function mapOf(m){return (m.boxRow&&m.boxRow.row.map)||(m.route&&m.route.map)||''}
+function renderCad(newOnes){
+  const nk=new Set(newOnes.map(incKey));
+  $('#cadTable tbody').innerHTML=INCIDENTS.map((i,idx)=>{const m=i.match,mp=mapOf(m);
+    return `<tr class="clickable ${m.matched?'match':''} ${myUnits(i).length?'mine':''} ${nk.has(incKey(i))?'new':''}" data-idx="${idx}">
+   <td class="dt">${esc(shortDate(i.date))}</td>
+   <td><div class="addr">${esc(i.address)}</div>${mp?`<div class="mapno">Map ${esc(mp.replace(/\s+/g,''))}${m.detail?' · '+esc(m.detail.id):''}</div>`:''}${!m.matched&&m.streetOnly.length?'<div class="mapno" style="color:var(--mute)">street in other book</div>':''}</td>
+   <td><span class="desc">${esc(i.description)}</span><span class="code">${esc(i.code)}</span></td>
+   <td class="units">${unitTokens(i.units).map(u=>RIDE.units.includes(u)?`<span class="myunit">${esc(u)}</span>`:esc(u)).join(' ')}</td>
+   <td class="box">${esc(i.box)||'—'}${i.station?`<small>Sta ${i.station}</small>`:''}</td></tr>`}).join('');
+  applyFilter();
+}
+function applyFilter(){
+  const q=$('#boardFilter').value.trim().toUpperCase();
+  document.querySelectorAll('#cadTable tbody tr').forEach(tr=>tr.classList.toggle('hidden',!!q&&!tr.textContent.toUpperCase().includes(q)));
+}
+$('#boardFilter').addEventListener('input',applyFilter);
+// Address lookup: same matching as a live call; station comes from the books (home station wins ties)
+function lookupAddress(){
+  const addr=$('#lookupAddr').value.trim().toUpperCase(); if(!addr) return;
+  const parts=parseAddress(addr); const score={};
+  parts.forEach(p=>lookupStreet(p.street).forEach(e=>{const st=e.file.station;if(!st||!selected.has(st))return;const s=blkScore(p.num,e.row.blk)+0.01;score[st]=Math.max(score[st]||0,s)}));
+  const home=+LS.get('homeSt',19); let st=null;
+  const ranked=Object.entries(score).sort((a,b)=>b[1]-a[1]||(+b[0]===home)-(+a[0]===home));
+  if(ranked.length) st=+ranked[0][0];
+  const inc={date:new Date().toLocaleString('en-US',{month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit',hour12:false}).replace(',',''),
+    address:addr,code:'LOOKUP',description:'Address lookup',units:'',box:st?String(st).padStart(2,'0')+'00':'',station:st};
+  inc.match=matchIncident(inc);
+  if(!st) flash('That street isn’t in any loaded book — showing the address on the map only.');
+  showIncident(inc);
+}
+$('#lookupBtn').onclick=lookupAddress;
+$('#lookupAddr').addEventListener('keydown',e=>{if(e.key==='Enter')lookupAddress()});
+// Clock + home station
+setInterval(()=>{$('#clock').textContent=new Date().toLocaleTimeString('en-GB',{hour12:false})},250);
+(function(){const sel=$('#homeSt');const home=+LS.get('homeSt',19);
+  sel.innerHTML=Array.from({length:NSTATIONS},(_,i)=>`<option value="${i+1}" ${i+1===home?'selected':''}>Sta ${i+1}</option>`).join('');
+  const upd=()=>{$('#homeAv').textContent=sel.value;LS.set('homeSt',+sel.value)};sel.onchange=upd;upd()})();
+$('#cadTable').addEventListener('click',e=>{const tr=e.target.closest('tr[data-idx]');if(tr)showIncident(INCIDENTS[+tr.dataset.idx])});
+
+/* ================= ALERTS ================= */
+let audioCtx=null;
+$('#enableAlerts').onclick=async()=>{
+  try{audioCtx=audioCtx||new (window.AudioContext||window.webkitAudioContext)();await audioCtx.resume()}catch(e){}
+  let p='unsupported'; if('Notification' in window){try{p=await Notification.requestPermission()}catch(e){}}
+  const b=$('#enableAlerts'); b.classList.remove('off'); b.textContent='Alerts armed';
+  $('#armText').textContent=p==='granted'?'A matching call plays its tone and pops a desktop notification while Run Card is open.':'A matching call plays its tone on this device while Run Card is open (desktop notifications are blocked).';
+  beep();
+};
+function beep(){if(!$('#optSound').checked||!audioCtx)return;try{const o=audioCtx.createOscillator(),g=audioCtx.createGain();o.type='square';o.frequency.value=880;g.gain.value=.15;o.connect(g);g.connect(audioCtx.destination);const t=audioCtx.currentTime;o.frequency.setValueAtTime(880,t);o.frequency.setValueAtTime(660,t+.25);o.frequency.setValueAtTime(880,t+.5);o.start(t);o.stop(t+.8)}catch(e){}}
+function mapLink(inc){return inc._ll?`${ARC_VIEWER}&center=${inc._ll[1].toFixed(6)},${inc._ll[0].toFixed(6)}&level=17`:ARC_VIEWER}
+function routeSummary(m){
+  const r=m.rows.sort((a,b)=>b.hitBlock-a.hitBlock);
+  return r.slice(0,4).map(x=>`${x.row.street} ${x.row.blk||''} Map ${x.row.map||'-'}${x.row.complex?' ('+x.row.complex+')':''}`).join('; ');
+}
+async function fireAlert(inc){
+  beep();
+  try{const ll=await geocode(inc.address);inc._ll=ll}catch(e){}
+  const mp=mapOf(inc.match), rt=mp?'Map '+String(mp).replace(/\s+/g,''):'';
+  let dist=''; try{const o=routeOrigin(inc);if(o&&inc._ll){const r=await shortestRoute(o,inc._ll);dist=fmtDist(r.distance)+' from '+o.label}}catch(e){}
+  const body=`${inc.description}\nUnits: ${inc.units} · Box: ${inc.box}${rt?' · '+rt:''}${dist?'\n'+dist:''}\nTap for directions`;
+  if('Notification' in window && Notification.permission==='granted'){
+    const mu=myUnits(inc), url=deepLink(inc);
+    const title=`🚒 ${mu.length?mu.join(' ')+' — ':''}${inc.address}${inc.match.station?' (STA '+inc.match.station+')':''}`;
+    if(SWREG&&SWREG.showNotification){try{await SWREG.showNotification(title,{body,tag:incKey(inc),requireInteraction:true,data:{url},icon:'icon-192.png'});}catch(e){}}
+    else try{const n=new Notification(`🚒 ${mu.length?mu.join(' ')+' — ':''}${inc.address}${inc.match.station?' (STA '+inc.match.station+')':''}`,{body,tag:incKey(inc),requireInteraction:true});
+      n.onclick=()=>{window.focus();showIncident(inc);n.close()}}catch(e){}
+  }
+  const t=document.createElement('div');t.className='toast';
+  t.innerHTML=`<button class="x" title="Dismiss">×</button><b>🚒 ${esc(inc.address)}</b> <span class="pill red">Box ${esc(inc.box)}</span>
+    <div class="rt">${esc([rt,dist].filter(Boolean).join(' · ')||'Tap for directions')}</div><div class="small">${esc(shortDate(inc.date))} · ${esc(inc.description)} · <span style="color:var(--pink);font-family:var(--mono)">${esc(inc.units)}</span></div>`;
+  t.onclick=e=>{if(!e.target.classList.contains('x'))showIncident(inc);t.remove()};
+  $('#alertBanner').prepend(t); setTimeout(()=>t.remove(),90000);
+  [...$('#alertBanner').children].slice(3).forEach(x=>x.remove());
+  document.title='🔴 '+inc.address+' – MoCo Routes'; setTimeout(()=>document.title='Run Card',30000);
+}
+let alertSig='';
+function renderAlerts(){
+  const list=[...ALERTS.values()].reverse();
+  const sig=list.map(i=>incKey(i)+i.units+(i.match.rows.length)+(i.match.boxMap||[]).length+(i.match.routePages||[]).length).join('~');
+  if(sig===alertSig) return; alertSig=sig;
+  $('#alertCount').textContent=list.length; $('#alertCount').className='pill'+(list.length?' red':'');
+  $('#alertList').innerHTML=list.length?list.map((inc,i)=>incidentCard(inc,'a'+i)).join(''):'<div class="muted">No matched incidents yet.</div>';
+  list.forEach((inc,i)=>{const b=document.getElementById('go_a'+i);if(b)b.onclick=()=>showIncident(inc)});
+  list.forEach((inc,i)=>fillCard('a'+i,inc));
+}
+function cellLink(f,row,kind,text){
+  const l=kind==='map'?row.mapLink:row.detailLink;
+  if(!text) return '';
+  return l?`<a class="cell" data-lf="${f.id}" data-ri="${f.rows.indexOf(row)}" data-lk="${kind}">${esc(text)}</a>`:esc(text);
+}
+document.addEventListener('click',e=>{
+  const a=e.target.closest('a.cell'); if(!a) return; e.preventDefault(); e.stopPropagation();
+  const f=FILES.find(x=>x.id===a.dataset.lf); const row=f&&f.rows[+a.dataset.ri]; if(!row) return;
+  followLink(f,row.page,a.dataset.lk==='map'?row.mapLink:row.detailLink);
+},true);
+function idxTable(items){
+  if(!items.length) return '';
+  return `<table><thead><tr><th>Street Name</th><th>BLK</th><th>Map Page</th><th>Detail Map</th><th class="small">Source</th></tr></thead><tbody>${
+    items.map(x=>`<tr class="${x.hitBlock?'match':''}"><td>${esc(x.row.street)}</td><td>${esc(x.row.blk)}</td><td>${cellLink(x.file,x.row,'map',x.row.map)}</td><td>${cellLink(x.file,x.row,'detail',x.row.complex)}</td><td class="small muted"><a href="#" onclick="openPage('${x.file.id}',${x.row.page});return false">${esc(x.file.name)} p${x.row.page}</a></td></tr>`).join('')}</tbody></table>`;
+}
+/* ===== Directions from your location (shortest of the routes the router returns) ===== */
+let MYPOS=null, GEO_ERR=null;
+function startGeo(){
+  if(!('geolocation' in navigator)){GEO_ERR='not supported';updGeo();return}
+  navigator.geolocation.watchPosition(p=>{MYPOS={lat:p.coords.latitude,lng:p.coords.longitude,acc:p.coords.accuracy,t:Date.now()};GEO_ERR=null;updGeo()},
+    e=>{GEO_ERR=e.message||'denied';updGeo()},{enableHighAccuracy:true,maximumAge:10000,timeout:20000});
+}
+function updGeo(){const el=$('#geoStat');if(!el)return;
+  if(MYPOS){el.textContent='📍 GPS ±'+Math.round(MYPOS.acc)+' m';el.className='geo ok'}
+  else{el.textContent='📍 no GPS — routing from Sta '+(LS.get('homeSt',19));el.className='geo off';el.title=GEO_ERR||''}}
+function routeOrigin(inc){
+  if(MYPOS&&Date.now()-MYPOS.t<5*60000) return {lat:MYPOS.lat,lng:MYPOS.lng,label:'your location'};
+  const hs=+LS.get('homeSt',19), S=STATIONS[hs]||STATIONS[inc.station];
+  return S?{lat:S.lat,lng:S.lng,label:S.name+' (no GPS fix)'}:null;
+}
+const routeCache=new Map();
+async function shortestRoute(o,ll){
+  const k=[o.lat.toFixed(4),o.lng.toFixed(4),ll[0].toFixed(5),ll[1].toFixed(5)].join(',');
+  if(routeCache.has(k)) return routeCache.get(k);
+  const u=`https://router.project-osrm.org/route/v1/driving/${o.lng},${o.lat};${ll[1]},${ll[0]}?overview=full&geometries=geojson&steps=true&alternatives=3`;
+  const d=await (await fetch(u)).json(); if(!d.routes||!d.routes.length) throw new Error('no route');
+  const r=[...d.routes].sort((a,b)=>a.distance-b.distance)[0]; // most direct = shortest distance
+  routeCache.set(k,r); return r;
+}
+function turnTag(s){const m=s.maneuver,mod=(m.modifier||'').toLowerCase();
+  if(m.type==='depart') return ['START','S']; if(m.type==='arrive') return ['ARRIVE','A'];
+  if(/left/.test(mod)) return [mod.includes('slight')?'BEAR L':mod.includes('sharp')?'SHARP L':(m.type==='uturn'||mod==='uturn'?'U-TURN':'LEFT'),'L'];
+  if(/right/.test(mod)) return [mod.includes('slight')?'BEAR R':mod.includes('sharp')?'SHARP R':'RIGHT','R'];
+  if(mod==='uturn') return ['U-TURN','L'];
+  return ['STRAIGHT','S'];}
+function stepLine(s){const name=s.name||s.ref||'',m=s.maneuver;
+  if(m.type==='depart') return `Head ${dirWord(m.bearing_after)}${name?' on '+name:''}`;
+  if(m.type==='arrive') return 'Arrive at the address';
+  if(m.type==='roundabout'||m.type==='rotary') return `Roundabout — exit ${m.exit||''}${name?' onto '+name:''}`;
+  return name?(m.type==='new name'||m.type==='continue'?'Continue on '+name:name):stepText(s);}
+async function fillDirections(el,inc){
+  if(!el) return; el.innerHTML='<div class="rbox"><div class="muted">Finding the most direct route…</div></div>';
+  let ll; try{ll=inc._ll||await geocode(inc.address);inc._ll=ll}catch(e){el.innerHTML='<div class="rbox">Could not locate this address on the map.</div>';return}
+  const o=routeOrigin(inc); if(!o){el.innerHTML='<div class="rbox">No GPS fix and no home-station location yet.</div>';return}
+  try{
+    const r=await shortestRoute(o,ll); inc._route={r,o,ll};
+    const steps=r.legs[0].steps.filter((s,i,a)=>!(s.maneuver.type==='new name'&&!s.distance));
+    el.innerHTML=`<div class="rbox">
+      <div class="rbox-h"><span>🚒 ${esc(inc.address)}</span><small>${fmtDist(r.distance)}${inc.match.boxRow&&inc.match.boxRow.row.map?' · Map '+esc(String(inc.match.boxRow.row.map).replace(/\s+/g,'')):''}</small></div>
+      <div class="rbox-start">From <b>${esc(o.label)}</b> <button class="btn small rr">Re-route from here</button></div>
+      <ol>${steps.map(s=>{const [t,c]=turnTag(s);return `<li><span class="rt-dir ${c}">${t}</span>${esc(stepLine(s))}${s.distance&&s.maneuver.type!=='arrive'?` <span class="rt-d">${fmtDist(s.distance)}</span>`:''}</li>`}).join('')}</ol>
+      <div class="rbox-note">Shortest route by distance. Follows one-way streets and turn restrictions; ignores traffic and signals.</div></div>`;
+    el.querySelector('.rr').onclick=()=>{routeCache.clear();fillDirections(el,inc);if($('#tab-map').classList.contains('active'))drawRoute(inc)};
+  }catch(e){el.innerHTML=`<div class="rbox">Routing service unavailable right now. <a href="https://www.google.com/maps/dir/?api=1&destination=${ll[0]},${ll[1]}&travelmode=driving" target="_blank">Open in Google Maps</a></div>`}
+}
+// PDFs sometimes split words ("UNIVERSIT Y", "R D"): rejoin when the joined word is a known street word
+let WORDS=null, WORDS_VER=-1;
+function fixSplits(s){
+  if(WORDS_VER!==FILES_VER){WORDS=new Set([...Object.keys(SUFFIX),...Object.values(SUFFIX)]);FILES.forEach(f=>f.rows.forEach(r=>String(r.street).toUpperCase().split(/\s+/).forEach(w=>w.length>2&&WORDS.add(w))));WORDS_VER=FILES_VER}
+  const tk=String(s).split(' ');
+  for(let i=0;i<tk.length-1;i++){const a=tk[i],b=tk[i+1];
+    if(/^[A-Za-z]+$/.test(a)&&/^[A-Za-z]{1,2}$/.test(b)&&WORDS.has((a+b).toUpperCase())&&!WORDS.has(b.toUpperCase())){tk.splice(i,2,a+b);i--}}
+  return tk.join(' ');
+}
+// Plain, large-print running route: start point, then numbered turns
+function routeBox(inc){
+  const m=inc.match, R=m.route; let start='', steps=[], sub='';
+  if(R){start=R.start||'';steps=R.steps||[];
+    sub=[R.blk?('Block '+R.blk):'',(R.map||(m.boxRow&&m.boxRow.row.map))?('Map '+String(R.map||m.boxRow.row.map).replace(/\s+/g,'')):'',m.detail?('Detail '+m.detail.id):''].filter(Boolean).join(' · ')}
+  else if(m.routeText){steps=m.routeText.lines.slice(1)}
+  steps=steps.map(s=>fixSplits(String(s).replace(/\s+/g,' ').trim())).filter(Boolean); start=fixSplits(start);
+  if(!steps.length&&!start) return '';
+  const turn=s=>{const t=s.match(/^\(?\s*([RL])\s*\)?\s+(?:ON\s+)?(.*)$/i)||s.match(/^(LEFT|RIGHT)\s*(?:ON|ONTO|-|–)?\s*(.*)$/i);
+    if(!t) return `<span class="rt-word"></span>${esc(s)}`;
+    const d=t[1].toUpperCase()[0]==='L'?'L':'R';
+    return `<span class="rt-dir ${d}">${d==='L'?'LEFT':'RIGHT'}</span>${esc(t[2]||'')}`};
+  return `<div class="rbox">
+    <div class="rbox-h"><span>🚒 ${esc(inc.address)}</span>${sub?`<small>${esc(sub)}</small>`:''}</div>
+    ${start?`<div class="rbox-start">Start: <b>${esc(start)}</b></div>`:''}
+    <ol>${steps.map(s=>`<li>${turn(s)}</li>`).join('')}</ol></div>`;
+}
+function incidentCard(inc,id){
+  const m=inc.match; const rt=m.routeText; const R=m.route;
+  const hit=m.rows.filter(r=>r.hitBlock), rest=m.rows.filter(r=>!r.hitBlock);
+  return `<div class="card"><h3>${esc(inc.address)} ${matchBadge(m)} <span class="pill">Box ${esc(inc.box)}</span></h3>
+   <div class="small" style="margin-bottom:8px">${esc(inc.date)} · <b>${esc(inc.description)}</b> · Units: ${esc(inc.units)}</div>
+   <div class="sec"><b>1 · Directions</b></div>
+   <div id="dir_${id}"></div>
+   <details class="small" style="margin-top:6px"><summary>Street index rows (${m.rows.length})</summary>${hit.length?idxTable(hit)+(rest.length?idxTable(rest):''):idxTable(m.rows)}</details>
+   <div class="sec"><b>2 · Map page</b> ${m.boxRow&&m.boxRow.row.map?`<span class="pill">${esc(m.boxRow.row.map)}</span>`:(R&&R.map?`<span class="pill">${esc(R.map)}</span>`:'')}</div>
+   <div id="bm_${id}" class="mapbox"></div>
+   ${m.boxRow&&m.boxRow.row.smap&&m.boxRow.row.smapLink?`<div class="sec"><b>2b · Box map</b> <span class="pill">${esc(m.boxRow.row.smap)}</span></div><div id="bm2_${id}" class="mapbox"></div>`:''}
+   ${m.detail?`<div class="sec"><b>3 · Detail map</b> <span class="pill amber">${esc(m.detail.label)}</span></div><div id="cm_${id}" class="mapbox"></div>`:''}
+   ${m.detailAlt?`<div class="sec"><b>3b · Detail map</b> <span class="pill red">${esc(m.detailAlt.label)}</span></div><div id="cm2_${id}" class="mapbox"></div>`:''}
+   <div class="sec"><b>Links</b></div>
+   <div class="small"><a href="${mapLink(inc)}" target="_blank">ArcGIS (Fire Station Areas)</a> · <a href="https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(inc.address+', Montgomery County, MD')}" target="_blank">Google Maps</a> · Box ${esc(inc.box)} → Station ${m.station??'?'} · Code ${esc(inc.code)}</div>
+   ${m.streetOnly.length?`<details class="small" style="margin-top:6px"><summary>Same street in other stations' files (${m.streetOnly.length})</summary>${idxTable(m.streetOnly)}</details>`:''}
+   <details class="small" style="margin-top:6px"><summary>All pages mentioning this street (${(m.routePages||[]).length})</summary><div class="pages" id="rp_${id}"></div></details>
+   <div style="margin-top:10px"><button class="btn primary" id="go_${id}">Show route on map</button></div></div>`;
+}
+async function putPage(el,p,scale,big,opts={}){
+  const wrap=document.createElement('div'); if(!big) wrap.style.maxWidth='300px';
+  try{const c=await renderPageEl(p.file,p.page,scale,opts); c.onclick=()=>openPage(p.file.id,p.page,opts.crop?{rects:opts.rects,band:opts.band}:{}); c.style.cursor='zoom-in'; wrap.appendChild(c)}
+  catch(e){console.error(e);const b=document.createElement('button');b.className='btn small';b.textContent='Open page';b.onclick=()=>openPage(p.file.id,p.page);wrap.appendChild(b)}
+  if(!opts.crop){const cap=document.createElement('div');cap.className='small muted';cap.textContent=`${p.file.name} p${p.page} — click to enlarge · blue boxes are links`;wrap.appendChild(cap)}
+  el.appendChild(wrap);
+}
+// Map page / detail map: follow the index row's own hyperlink first, then fall back to searching the uploaded map PDFs
+function titledPage(f,id,only){ // detail sheets carry a "MAP 3E" title block; match by position on the page
+  if(!f||!id) return null; const ID=String(id).replace(/\s/g,'').toUpperCase(), SH=detKey(id);
+  const pages=only?[only]:f.pages.map((_,k)=>k+1);
+  for(const pg of pages){
+    if(f.rows&&f.rows.some(r=>r.page===pg)) continue;
+    const its=((f.items||[])[pg-1]||[]).map(a=>({s:String(a[0]).replace(/\s/g,'').toUpperCase(),x:a[1],y:a[2],w:a[3],h:a[4]}));
+    if(its.some(i=>i.s==='MAP'+ID||i.s==='MAP'+SH)) return pg;
+    if(its.some(i=>(i.s===ID||i.s===SH)&&i.h>=18)) return pg; // big title in the corner (Co. 1 style)
+    const maps=its.filter(i=>i.s==='MAP'), ids=its.filter(i=>i.s===ID||i.s===SH);
+    if(maps.some(m=>ids.some(d=>Math.abs((d.x)-(m.x))<90&&m.y-d.y>-4&&m.y-d.y<40))) return pg;
+  }
+  return null;
+}
+async function showLinkedPage(el,item,link,fallback,what,detailId){
+  el.innerHTML='';
+  let target=null, note='';
+  if(item&&link){const r=await resolveLink(item.file,item.row.page,link);
+    if(r&&r.file){target={file:r.file,page:r.page};
+      if(detailId&&!titledPage(r.file,detailId,r.page)){const tp=titledPage(r.file,detailId);if(tp)target={file:r.file,page:tp}}}
+    else if(r&&r.missing) note=`The index links this to “${esc(r.missing)}”, which isn’t loaded. `;
+    else if(r&&r.url) note=`Linked to <a href="${esc(r.url)}" target="_blank">${esc(r.url)}</a>. `}
+  if(!target&&fallback&&fallback[0]) target=fallback[0];
+  if(target) await putPage(el,target,1.6,true);
+  else el.innerHTML=`<div class="muted small">${note}No ${what} page found. Add the map PDFs on Files &amp; Stations.</div>`;
+  if(target&&note) el.insertAdjacentHTML('afterbegin',`<div class="small muted">${note}Showing best match instead.</div>`);
+}
+async function fillCard(id,inc){
+  const m=inc.match;
+  fillDirections(document.getElementById('dir_'+id),inc);
+  const bm=document.getElementById('bm_'+id);
+  if(bm) await showLinkedPage(bm,m.boxRow,m.boxRow&&m.boxRow.row.mapLink,m.boxMap,'map');
+  const bm2=document.getElementById('bm2_'+id);
+  if(bm2) await showLinkedPage(bm2,m.boxRow,m.boxRow.row.smapLink,[],'box map');
+  const cm=document.getElementById('cm_'+id);
+  if(cm) await showLinkedPage(cm,m.detail&&m.detail.item,m.detail&&m.detail.link,m.complexMap,'detail map',m.detail&&isDetailId(m.detail.id)?m.detail.id:null);
+  const cm2=document.getElementById('cm2_'+id);
+  if(cm2) await showLinkedPage(cm2,m.detailAlt.item,m.detailAlt.link,[],'detail map',m.detailAlt.id);
+  const rp=document.getElementById('rp_'+id);
+  if(rp){rp.innerHTML='';for(const p of (m.routePages||[]).slice(0,6)) await putPage(rp,p,0.8,false)}
+}
+/* ================= MAP ================= */
+let map, routeLayer, hydLayer, areaLayer, stationLayer, incMarker, STATIONS={}, AREAS={};
+function initMap(){
+  map=L.map('map',{preferCanvas:true}).setView([39.1,-77.15],11);
+  L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19,attribution:'&copy; OpenStreetMap contributors'}).addTo(map);
+  routeLayer=L.layerGroup().addTo(map); hydLayer=L.layerGroup().addTo(map); areaLayer=L.layerGroup().addTo(map); stationLayer=L.layerGroup().addTo(map);
+  L.control.layers(null,{'Fire Station Areas (first due)':areaLayer,'Fire Stations':stationLayer,'Fire Hydrants (zoom in)':hydLayer,'Route':routeLayer},{collapsed:innerWidth<700}).addTo(map);
+  arcQuery(L_AREAS,{outFields:'SECTOR',geometryPrecision:5}).then(d=>{
+    (d.features||[]).forEach(f=>{const st=parseInt(f.attributes.SECTOR,10);const rings=f.geometry.rings.map(r=>r.map(([x,y])=>[y,x]));
+      const poly=L.polygon(rings,{color:'#d62828',weight:1.5,fillOpacity:.04}).bindTooltip('Station '+st,{sticky:true});AREAS[st]=poly;poly.addTo(areaLayer)});
+  }).catch(e=>console.warn('areas',e));
+  arcQuery(L_STATIONS,{}).then(d=>{
+    (d.features||[]).forEach(f=>{const a=f.attributes;const st=parseInt(String(a.INFO).trim(),10);if(!st)return;
+      STATIONS[st]={lat:f.geometry.y,lng:f.geometry.x,name:a.NAME,addr:String(a.ADDRESS).trim()};
+      L.marker([f.geometry.y,f.geometry.x],{icon:L.divIcon({className:'',html:`<div style="background:#d62828;color:#fff;border-radius:4px;padding:1px 4px;font:bold 11px Arial;border:1px solid #fff;white-space:nowrap">${st}</div>`})})
+       .bindPopup(`<b>${esc(a.NAME)}</b><br>${esc(a.ADDRESS)}`).addTo(stationLayer)});
+  }).catch(e=>console.warn('stations',e));
+  map.on('moveend',loadHydrants);
+}
+let hydTimer=null;
+function loadHydrants(){
+  clearTimeout(hydTimer);hydTimer=setTimeout(async()=>{
+    if(!map.hasLayer(hydLayer))return;
+    if(map.getZoom()<15){hydLayer.clearLayers();return}
+    const b=map.getBounds();
+    try{const d=await arcQuery(L_HYDRANTS,{geometry:[b.getWest(),b.getSouth(),b.getEast(),b.getNorth()].join(','),geometryType:'esriGeometryEnvelope',inSR:'4326',spatialRel:'esriSpatialRelIntersects',outFields:'HYD_ID,FULL_ADDRE,MAIN,OWN',resultRecordCount:2000});
+      hydLayer.clearLayers();
+      (d.features||[]).forEach(f=>{const a=f.attributes;L.circleMarker([f.geometry.y,f.geometry.x],{radius:map.getZoom()>=17?6:4,color:'#fff',weight:1,fillColor:'#e00000',fillOpacity:1})
+        .bindPopup(`<b>Hydrant ${esc(a.HYD_ID)}</b><br>${esc(a.FULL_ADDRE)}<br>Main: ${esc(a.MAIN)}"`).addTo(hydLayer)});
+    }catch(e){console.warn('hydrants',e)}
+  },300);
+}
+const geoCache=new Map();
+async function geocode(addr){
+  const q=addr.replace(/\s*\/\s*/,' & ');
+  if(geoCache.has(q)) return geoCache.get(q);
+  const u='https://geocode.arcgis.com/arcgis/rest/services/World/GeocodeServer/findAddressCandidates?'+new URLSearchParams({SingleLine:q+', Montgomery County, MD',searchExtent:MOCO_EXTENT,maxLocations:1,outFields:'Score',f:'json'});
+  const d=await (await fetch(u)).json(); const c=(d.candidates||[])[0];
+  if(!c) throw new Error('Address not found');
+  const ll=[c.location.y,c.location.x]; geoCache.set(q,ll); return ll;
+}
+function stepText(s){
+  const m=s.maneuver, name=s.name||s.ref||'';
+  const mod=m.modifier?m.modifier.replace('slight ','slight ').replace('sharp ','sharp '):'';
+  const map={depart:`Head ${dirWord(m.bearing_after)}${name?' on '+name:''}`,arrive:'Arrive at destination',
+    turn:`Turn ${mod}${name?' onto '+name:''}`,'new name':`Continue onto ${name}`,continue:`Continue ${mod}${name?' on '+name:''}`,
+    merge:`Merge ${mod}${name?' onto '+name:''}`,'on ramp':`Take ramp ${mod}${name?' to '+name:''}`,'off ramp':`Take exit ${mod}${name?' to '+name:''}`,
+    fork:`Keep ${mod} at fork${name?' onto '+name:''}`,'end of road':`At end of road turn ${mod}${name?' onto '+name:''}`,
+    roundabout:`Enter roundabout, take exit ${m.exit||''}${name?' onto '+name:''}`,rotary:`Enter rotary, take exit ${m.exit||''}${name?' onto '+name:''}`};
+  return (map[m.type]||`${m.type} ${mod} ${name}`).replace(/\s+/g,' ');
+}
+function dirWord(b){return ['north','northeast','east','southeast','south','southwest','west','northwest'][Math.round(((b||0)%360)/45)%8]}
+function fmtDist(m){const mi=m/1609.34;return mi<0.1?Math.round(m*3.281)+' ft':mi.toFixed(2)+' mi'}
+async function drawRoute(inc){
+  routeLayer.clearLayers(); if(incMarker) incMarker.remove();
+  let ll; try{ll=inc._ll||await geocode(inc.address);inc._ll=ll}catch(e){return}
+  incMarker=L.marker(ll).addTo(map).bindPopup(`<b>${esc(inc.address)}</b><br>${esc(inc.description)}`).openPopup();
+  Object.entries(AREAS).forEach(([st,p])=>p.setStyle(+st===inc.station?{color:'#ffbe0b',weight:3,fillOpacity:.12}:{color:'#d62828',weight:1.5,fillOpacity:.04}));
+  const o=routeOrigin(inc); if(!o){map.setView(ll,17);return}
+  L.circleMarker([o.lat,o.lng],{radius:8,color:'#fff',weight:2,fillColor:'#2f7bff',fillOpacity:1}).bindTooltip('Start: '+o.label).addTo(routeLayer);
+  try{const r=await shortestRoute(o,ll);
+    const line=L.geoJSON(r.geometry,{style:{color:'#3a86ff',weight:7,opacity:.9}}).addTo(routeLayer);
+    map.fitBounds(line.getBounds(),{padding:[40,40]});
+  }catch(e){map.setView(ll,17)}
+}
+async function showIncident(inc){
+  switchTab('map'); setTimeout(()=>map.invalidateSize(),50);
+  const side=$('#mapSide');
+  side.innerHTML=incidentCard(inc,'m')+'<div style="margin-top:8px"><button class="btn small" id="zoomAddr">Zoom to address & hydrants</button></div>';
+  fillCard('m',inc);
+  const gb=document.getElementById('go_m'); if(gb) gb.style.display='none';
+  await drawRoute(inc);
+  side.querySelectorAll('a[href^="'+ARC_VIEWER.slice(0,40)+'"]').forEach(a=>a.href=mapLink(inc));
+  $('#zoomAddr').onclick=()=>inc._ll&&map.setView(inc._ll,18);
+}
+
+/* ================= TABS ================= */
+function switchTab(t){document.querySelectorAll('nav button').forEach(b=>b.classList.toggle('active',b.dataset.tab===t));document.querySelectorAll('.tab').forEach(s=>s.classList.toggle('active',s.id==='tab-'+t));if(t==='map'&&map)setTimeout(()=>map.invalidateSize(),50)}
+document.querySelectorAll('nav button').forEach(b=>b.onclick=()=>switchTab(b.dataset.tab));
+['optSound','optStartup','optStreetOnly'].forEach(id=>{const el=document.getElementById(id);el.checked=LS.get(id,el.checked);el.onchange=()=>{LS.set(id,el.checked);rematch()}});
+
+/* ================= PHONE APP (PWA) ================= */
+let SWREG=null;
+/* Pushover watcher sync */
+const PO={url:LS.get('poUrl',''),key:LS.get('poKey','')};
+const poBase=()=>PO.url.replace(/\/+$/,'');
+function poMsg(t){const el=$('#poMsg');if(el)el.textContent=t}
+async function poCall(path,body){if(!PO.url||!PO.key) throw new Error('Set the watcher address and passphrase first');
+  const r=await fetch(poBase()+path,{method:body?'POST':'GET',headers:body?{'content-type':'application/json'}:{},body:body?JSON.stringify({key:PO.key,...body}):undefined});
+  const j=await r.json().catch(()=>({})); if(!r.ok) throw new Error(j.error||('HTTP '+r.status)); return j}
+async function poSync(){ if(!PO.url||!PO.key) return;
+  try{const j=await poCall('/units',{units:RIDE.units,on:RIDE.on&&RIDE.units.length>0});poMsg(`Watcher synced: ${j.units.join(', ')||'no units'} · ${j.on?'ON':'OFF'}`)}catch(e){poMsg('Sync failed: '+e.message)}}
+function initPO(){
+  $('#poUrl').value=PO.url; $('#poKey').value=PO.key;
+  $('#poSave').onclick=()=>{PO.url=$('#poUrl').value.trim();PO.key=$('#poKey').value.trim();LS.set('poUrl',PO.url);LS.set('poKey',PO.key);poSync()};
+  $('#poTest').onclick=async()=>{poMsg('Sending…');try{const j=await poCall('/test',{});poMsg(`Pushover: ${j.pushover} · CAD: ${j.cad&&j.cad.rows!=null?j.cad.rows+' calls read':JSON.stringify(j.cad)}`)}catch(e){poMsg('Test failed: '+e.message)}};
+  $('#poStatus').onclick=async()=>{try{const r=await fetch(poBase()+'/');const j=await r.json();poMsg(`Units ${j.units.join(', ')||'none'} · ${j.on?'ON':'OFF'} · last check ${j.last?new Date(j.last.at).toLocaleTimeString()+(j.last.error?' — '+j.last.error:' — '+j.last.rows+' calls'):'not yet'}`)}catch(e){poMsg('Could not reach the watcher: '+e.message)}};
+}
+function deepLink(inc){const u=new URL(location.href.split('?')[0].split('#')[0]);u.searchParams.set('addr',inc.address);if(inc.box)u.searchParams.set('box',inc.box);
+  if(inc.units)u.searchParams.set('units',inc.units);if(inc.description)u.searchParams.set('desc',inc.description);return u.toString()}
+// Opened from a Pushover/notification link: ?addr=9400 CAROLINE AVE&box=1605&units=…
+function openFromLink(search){
+  const q=new URLSearchParams(search||location.search); const addr=q.get('addr'); if(!addr) return false;
+  const box=q.get('box')||''; const st=boxStation(box);
+  const inc=INCIDENTS.find(i=>i.address.toUpperCase()===addr.toUpperCase())||{date:new Date().toLocaleString('en-US',{month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit',hour12:false}).replace(',',''),
+    address:addr.toUpperCase(),code:'',description:q.get('desc')||'Dispatched',units:q.get('units')||'',box,station:st};
+  if(st==null&&!inc.station){$('#lookupAddr').value=addr;lookupAddress()} else {inc.match=matchIncident(inc);showIncident(inc)}
+  history.replaceState(null,'',location.pathname); return true;
+}
+let wakeLock=null;
+async function setWake(on){
+  try{ if(on){ if('wakeLock' in navigator){wakeLock=await navigator.wakeLock.request('screen');wakeLock.addEventListener('release',()=>{wakeLock=null})} }
+       else if(wakeLock){await wakeLock.release();wakeLock=null} }catch(e){}
+}
+document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible'&&$('#optWake').checked&&!wakeLock)setWake(true)});
+async function initPWA(){
+  if('serviceWorker' in navigator&&location.protocol==='https:'){
+    try{SWREG=await navigator.serviceWorker.register('sw.js');
+      navigator.serviceWorker.addEventListener('message',e=>{if(e.data&&e.data.open)openFromLink(new URL(e.data.open).search)})}catch(e){console.warn('sw',e)}
+  }
+  try{if(navigator.storage&&navigator.storage.persist)await navigator.storage.persist()}catch(e){} // keep loaded mapbooks from being evicted
+  const w=$('#optWake'); w.checked=LS.get('optWake',false); w.onchange=()=>{LS.set('optWake',w.checked);setWake(w.checked)}; if(w.checked) setWake(true);
+}
+
+/* ================= BOOT ================= */
+(async function boot(){
+  await initPdf();
+  try{await DB.open();FILES=await DB.all(); FILES.forEach(f=>{if(f.kindAuto===undefined&&f.kind==='routes'){f.kind=detectKind(f);f.kindAuto=true;DB.put(f).catch(()=>{})}})}catch(e){memoryOnly=true;log('Browser storage unavailable — files will need re-adding each session.')}
+  initMap(); refreshAll(); poll(); startGeo(); updGeo(); renderRide(); initPWA(); initPO();
+  if(location.search.includes('addr=')) setTimeout(()=>openFromLink(),2500); // wait for the first CAD read
+  $('#rideOn').onchange=e=>{if(e.target.checked&&!RIDE.units.length){e.target.checked=false;flash('Pick at least one unit first.');return}RIDE.on=e.target.checked;saveRide()};
+  $('#rideChip').onclick=()=>{if(!RIDE.units.length){switchTab('notify');return}RIDE.on=!RIDE.on;saveRide();flash(RIDE.on?'Alerts only for '+RIDE.units.join(', '):'Apparatus filter off — alerting on book matches')};
+  const addU=()=>{const v=$('#rideAdd').value.trim().toUpperCase().replace(/\s+/g,'');if(v){RIDE.units=[...new Set([...RIDE.units,v])];$('#rideAdd').value='';saveRide()}};
+  $('#rideAddBtn').onclick=addU; $('#rideAdd').addEventListener('keydown',e=>{if(e.key==='Enter')addU()});
+  $('#homeSt').addEventListener('change',renderRide);
+  // files saved by an older version: re-read them so hyperlinks and page layout are available
+  const stale=FILES.filter(f=>f.v!==PARSE_V);
+  for(const [i,f] of stale.entries()){
+    try{log(`Updating saved files for links & route highlighting (${i+1}/${stale.length}): ${esc(f.name)}…`);
+      const r=await parseFile({name:f.name,type:f.mime},f.data);
+      Object.assign(f,{v:r.v,items:r.items,sizes:r.sizes,links:r.links,rows:r.rows,pages:r.pages});
+      if(f.kindAuto!==false) f.kind=r.kind;
+      if(!memoryOnly) await DB.put(f).catch(()=>{});
+    }catch(e){console.warn('reparse',f.name,e)}
+  }
+  if(stale.length){log(`✅ Updated ${stale.length} saved file(s).`);refreshAll()}
+
+})();
+</script>
+</body>
+</html>
