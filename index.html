@@ -1027,6 +1027,13 @@ function computeMatch(inc){
            if(its.filter(i=>/[A-Z]{4,}/i.test(i[0])).length>60) return; // a text page, not a map sheet
            if(its.filter(i=>/^(MAP\s*)?\d{1,2}\s*-\s*\d{1,2}$/i.test(String(i[0]).trim())).length>=2) return; // a box map page ("16-3", "Map 16-07"), not a detail sheet
            const sid=sheetId(f,pi)||('p'+(pi+1));
+           // parent box map: the sheet that outlines this detail (29B) alongside its siblings (29A, 29C…)
+           const base=(sid.match(/^(\d{1,3})[A-Z]/)||[])[1];
+           if(base){const sib=new RegExp('^'+base+'[A-Z]$');
+             const par=f.items.findIndex((its2,j)=>j!==pi&&!f.rows.some(r=>r.page===j+1)&&!rps.has(j)&&its2.some(i=>String(i[0]).trim().toUpperCase()===sid)&&its2.filter(i=>sib.test(String(i[0]).trim().toUpperCase())).length>=2);
+             const shown=res.boxRow&&String(res.boxRow.row.map||'').replace(/\s/g,'');
+             const shownPg=res.boxRow&&res.boxRow.row&&res.boxRow.file===f?null:null; const same=shown&&(shown===base||shown.replace(/^\d{1,2}-0*/,'')===base);
+             if(par>=0&&!same) add({direct:{file:f,page:par+1},id:'BOX'+base,label:'Box map '+base+' · outlines '+sid,pinToken:sid});}
            add({direct:{file:f,page:pi+1},id:sid,label:'Detail '+sid+' · shows '+tok});
            its.map(i=>String(i[0]).trim().toUpperCase()).filter(t=>t!==sid&&t.startsWith(sid)&&/^\d{1,3}[A-Z]{1,2}\d{1,2}$/.test(t)).forEach(cid=>{
              const cp=(f.items.findIndex((_,j)=>sheetId(f,j)===cid)+1)||titledPage(f,cid); if(cp&&cp!==pi+1) add({direct:{file:f,page:cp},id:cid,label:'Detail '+cid});
@@ -1643,7 +1650,7 @@ function incidentCard(inc,id){
    <div class="sec"><b>2 · Box map</b> ${m.boxRow&&m.boxRow.row.map?`<span class="pill">${esc(m.boxRow.row.map)}</span>`:(R&&R.map?`<span class="pill">${esc(R.map)}</span>`:'')}</div>
    <div id="bm_${id}" class="mapbox"></div>
    ${m.boxRow&&m.boxRow.row.smap&&m.boxRow.row.smapLink?`<div class="sec"><b>2b · Street map</b> <span class="pill">${esc(m.boxRow.row.smap)}</span></div><div id="bm2_${id}" class="mapbox"></div>`:''}
-   ${(m.details||[]).map((d,k)=>`<div class="sec"><b>3${k?String.fromCharCode(97+k):''} · Site / complex / detail map</b> <span class="pill ${/differs/.test(d.label)?'red':'amber'}">${esc(d.label)}</span></div><div id="cm_${id}_${k}" class="mapbox"></div>`).join('')}
+   ${(m.details||[]).map((d,k)=>`<div class="sec"><b>3${k?String.fromCharCode(97+k):''} · ${/^BOX/.test(d.id)?'Box map (from detail sheet)':'Site / complex / detail map'}</b> <span class="pill ${/differs/.test(d.label)?'red':'amber'}">${esc(d.label)}</span></div><div id="cm_${id}_${k}" class="mapbox"></div>`).join('')}
    <div id="mapSlot_${id}" class="mapslot"></div>
    <div class="sec"><b>Links</b></div>
    <div class="small"><a href="${appleMaps(inc)}" target="_blank" rel="noopener">Apple Maps</a> · <a href="${mapLink(inc)}" target="_blank">ArcGIS (Fire Station Areas)</a> · <a href="https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(inc.address+', Montgomery County, MD')}" target="_blank">Google Maps</a> · Box ${esc(inc.box||'—')} → Station ${m.station??'?'} · Code ${esc(inc.code)}</div>
@@ -1657,12 +1664,15 @@ function fitScale(el,f,page,maxPx=1300){ // draw page images at screen size, not
   return Math.max(0.6,Math.min(maxPx,cw)/w);
 }
 async function putPage(el,p,scale,big,opts={}){
-  if(opts.inc&&!opts.crop){const pin=findPin(p.file,p.page,opts.inc);if(pin)opts={...opts,pin};delete opts.inc}
+  if(opts.inc&&!opts.crop){let pin=findPin(p.file,p.page,opts.inc);
+    if(opts.pinToken&&!(pin&&pin.exact)){const t=((p.file.items||[])[p.page-1]||[]).find(i=>String(i[0]).trim().toUpperCase()===opts.pinToken);
+      if(t) pin={x:t[1],y:t[2],w:t[3]||20,h:t[4]||10,txt:opts.pinToken,exact:false,onDetail:true}}
+    if(pin)opts={...opts,pin};delete opts.inc;delete opts.pinToken}
   if(big&&!opts.crop) scale=fitScale(el,p.file,p.page);
   const wrap=document.createElement('div'); if(!big) wrap.style.maxWidth='300px';
   try{const c=await renderPageEl(p.file,p.page,scale,opts); c.onclick=()=>openPage(p.file.id,p.page,opts.crop?{rects:opts.rects,band:opts.band}:(opts.pin?{pin:opts.pin}:{})); c.style.cursor='zoom-in'; wrap.appendChild(c)}
   catch(e){console.error(e);const b=document.createElement('button');b.className='btn small';b.textContent='Open page';b.onclick=()=>openPage(p.file.id,p.page);wrap.appendChild(b)}
-  if(!opts.crop){const cap=document.createElement('div');cap.className='small muted';cap.textContent=(opts.pin?`📍 ${opts.pin.onStreet?'On '+opts.pin.street+' (no house number found)':opts.pin.exact?'At '+opts.pin.txt:'Rough location, near '+opts.pin.txt} · `:'')+`${p.file.name} p${p.page} — tap to enlarge · blue boxes are links`;wrap.appendChild(cap)}
+  if(!opts.crop){const cap=document.createElement('div');cap.className='small muted';cap.textContent=(opts.pin?`📍 ${opts.pin.onDetail?'At detail '+opts.pin.txt:opts.pin.onStreet?'On '+opts.pin.street+' (no house number found)':opts.pin.exact?'At '+opts.pin.txt:'Rough location, near '+opts.pin.txt} · `:'')+`${p.file.name} p${p.page} — tap to enlarge · blue boxes are links`;wrap.appendChild(cap)}
   el.appendChild(wrap);
 }
 // Map page / detail map: follow the index row's own hyperlink first, then fall back to searching the uploaded map PDFs
@@ -1705,7 +1715,7 @@ async function fillCard(id,inc){
   if(bm2) await showLinkedPage(bm2,m.boxRow,m.boxRow.row.smapLink,[],'box map',null,inc);
   for(const [k,d] of (m.details||[]).entries()){const el=document.getElementById('cm_'+id+'_'+k);
     if(!el) continue;
-    if(d.direct){el.innerHTML='';await putPage(el,d.direct,1.6,true,{inc})}
+    if(d.direct){el.innerHTML='';await putPage(el,d.direct,1.6,true,{inc,pinToken:d.pinToken})}
     else await showLinkedPage(el,d.item,d.link,k===0?m.complexMap:[],'detail map',isDetailId(d.id)?d.id:null,inc)}
   const rp=document.getElementById('rp_'+id);
   if(rp){const det=rp.closest('details');const load=async()=>{if(rp.dataset.done)return;rp.dataset.done=1;rp.innerHTML='';for(const p of (m.routePages||[]).slice(0,6)) await putPage(rp,p,0.5,false)};
