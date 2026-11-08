@@ -210,6 +210,70 @@ header{padding-top:max(18px,env(safe-area-inset-top))}
 }
 @media (max-width:900px){header{padding:12px 14px}#clock{font-size:28px}.tab{padding:4px 12px 20px}#tab-map.active{flex-direction:column;height:auto}#mapSide{width:auto;max-width:none}#map{height:70vh}}
 </style>
+<style id="theme">
+/* ===== Appearance: A · Clean Dark (dark mode) / C · Daylight (light mode) ===== */
+/* Option A — Clean Dark: flat graphite, red accent */
+:root{--bg:#0f1115;--card:#171a21;--field:#1d2129;--chip:#262b35;--line:#2a2f3a;--text:#f2f4f8;--text2:#c9cfdb;--mute:#8b93a3;
+ --accent:#e5343f;--unit:#ff7b88;--map:#f5c451;--hit:rgba(229,52,63,.10);--rboxline:#f5c451;--red:#e5343f;--pink:#ff7b88;--green:#34c77b;--amber:#f5c451}
+
+html.light{--bg:#f4f5f7;--card:#ffffff;--field:#ffffff;--chip:#e9ecf1;--line:#dfe3ea;--text:#0d1424;--text2:#2b3445;--mute:#6b7487;
+ --accent:#d0202e;--unit:#c4152a;--map:#a15c00;--hit:rgba(208,32,46,.07);--rboxline:#e0a100;--red:#d0202e;--pink:#c4152a;--green:#1f9d55;--amber:#c98a00}
+/* shared clean-up for all options */
+:root{--sans:-apple-system,BlinkMacSystemFont,"SF Pro Text","Segoe UI",Roboto,Helvetica,Arial,sans-serif;--mono:"SF Mono",ui-monospace,Menlo,Consolas,monospace}
+body{font-family:var(--sans);-webkit-font-smoothing:antialiased;background:var(--bg)!important;color:var(--text)}
+header{background:var(--bg);border-bottom:none}
+.brand h1{font-weight:800;letter-spacing:-.5px}
+.brand .kicker{color:var(--accent);letter-spacing:1.5px}
+#clock{font-weight:700;letter-spacing:0;font-variant-numeric:tabular-nums}
+nav{background:var(--bg)!important;border-bottom:1px solid var(--line);box-shadow:none!important}
+nav button{color:var(--mute);font-weight:600;border:none;border-radius:0;border-bottom:2.5px solid transparent;margin-bottom:0;padding:10px 12px}
+nav button.active{color:var(--text);background:none;border-bottom-color:var(--accent)}
+.pill{background:var(--chip);color:var(--mute)}
+.pill.red{background:var(--accent);color:#fff}
+input[type=text],select{background:var(--field);border:1px solid var(--line);border-radius:10px}
+.btn{background:var(--field);border:1px solid var(--line);border-radius:10px}
+.btn.route{background:var(--accent);border-color:var(--accent);color:#fff}
+#enableAlerts{border-radius:10px}
+#enableAlerts.off{border-width:1.5px}
+.card,.arow{background:var(--card);border:1px solid var(--line);border-radius:14px;box-shadow:none;backdrop-filter:none}
+#cadTable tr{border-bottom:1px solid var(--line)!important}
+#cadTable .addr{font-weight:700;letter-spacing:-.2px}
+#cadTable .desc{font-weight:500;color:var(--text2)}
+#cadTable .code{color:var(--mute)}
+#cadTable .units{color:var(--unit)}
+#cadTable .mapno{color:var(--map)}
+#cadTable .box{font-weight:700}
+tr.match td,#cadTable tr.match{background:var(--hit)!important}
+.geo,.ridechip{border-radius:999px}
+.home .av{background:var(--accent);color:#fff}
+.rbox{border-radius:14px;border-width:0;box-shadow:inset 0 0 0 1.5px var(--rboxline)}
+.sec{color:var(--mute);border-top:1px solid var(--line);letter-spacing:.8px}
+
+html.light .brand svg rect{fill:#d0202e}
+html.light #status,.home{color:var(--text)}html.light .home select{color:var(--text)}
+html.light .geo.ok{color:#1f9d55;border-color:#bfe5cf}html.light .geo.off{color:#a66c00;border-color:#f0d9a6}
+html.light .ridechip.off{color:var(--text2)}
+html.light #enableAlerts{background:#ffd34d;color:#1b1b1b}html.light #enableAlerts.off{background:#fff;color:#8a6500;border-color:#e3b53a}
+html.light .armbar span{color:var(--text2)}
+html.light .leaflet-container{background:#e9ecef}
+html.light .toast{background:#fff;color:var(--text);border-color:var(--accent)}
+html.light .sheet-card{background:#fff;color:var(--text)}html.light .ubtn{color:var(--text);background:#f4f5f7}
+/* surfaces that had fixed colors */
+#viewer{background:var(--bg)}.vbar{background:var(--card);border-bottom-color:var(--line)}
+.sheet-card{background:var(--card)}#mapSide{background:var(--bg)}
+body::before{background:var(--bg)}
+.toast{background:var(--card);color:var(--text)}
+.vinfo,.muted{color:var(--mute)}
+html.light .btn{color:var(--text)} html.light .vbtn{color:var(--text)}
+html.light th{color:var(--mute)} html.light a{color:#1a56c4}
+html.light .arow .units{color:var(--unit)} html.light .arow .mapno{color:var(--map)}
+html.light .card h3,html.light .sheet-h{color:var(--text)}
+html.light .grid label,html.light .uchip{background:#fff;color:var(--text)}
+html.light .myunit,html.light .uchip.sel,html.light .ubtn.sel{color:#fff;background:var(--accent);border-color:var(--accent)}
+html.light .excerpt{background:#f4f5f7}
+html.light .bigtoggle.off{background:#e3e7ee;color:#2b3445}
+html.light #status .dot{box-shadow:none}
+</style>
 </head>
 <body>
 <header>
@@ -276,6 +340,7 @@ header{padding-top:max(18px,env(safe-area-inset-top))}
   <div class="card" style="margin-top:14px">
     <h3>Alert options</h3>
     <div style="display:grid;gap:10px">
+      <label>Appearance <select id="optTheme" style="margin-left:6px"><option value="auto">Auto (follow iPhone Light/Dark)</option><option value="light">Light</option><option value="dark">Dark</option></select></label>
       <label><input type="checkbox" id="optSound" checked> Play tone</label>
       <label><input type="checkbox" id="optWake"> Keep screen on while Run Card is open (rig mount)</label>
       <label><input type="checkbox" id="optStartup"> Alert for calls already on the board when Run Card opens</label>
@@ -1630,6 +1695,15 @@ function switchTab(t){document.querySelectorAll('nav button').forEach(b=>b.class
 document.querySelectorAll('nav button').forEach(b=>b.onclick=()=>switchTab(b.dataset.tab));
 ['optSound','optStartup','optStreetOnly'].forEach(id=>{const el=document.getElementById(id);el.checked=LS.get(id,el.checked);el.onchange=()=>{LS.set(id,el.checked);rematch()}});
 
+/* ================= APPEARANCE ================= */
+const MQ=window.matchMedia?matchMedia('(prefers-color-scheme: light)'):null;
+function applyTheme(){
+  const pref=LS.get('theme','auto'), light=pref==='light'||(pref==='auto'&&MQ&&MQ.matches);
+  document.documentElement.classList.toggle('light',!!light);
+  const m=document.querySelector('meta[name=theme-color]'); if(m) m.content=light?'#f4f5f7':'#0f1115';
+}
+if(MQ){MQ.addEventListener?MQ.addEventListener('change',applyTheme):MQ.addListener(applyTheme)}
+applyTheme();
 /* ================= PHONE APP (PWA) ================= */
 let SWREG=null;
 /* Pushover watcher sync */
@@ -1678,6 +1752,7 @@ async function initPWA(){
   await initPdf();
   try{await DB.open();FILES=await DB.all(); FILES.forEach(f=>{if(f.kindAuto===undefined&&f.kind==='routes'){f.kind=detectKind(f);f.kindAuto=true;DB.put(f).catch(()=>{})}})}catch(e){memoryOnly=true;log('Browser storage unavailable — files will need re-adding each session.')}
   initMap(); refreshAll(); poll(); startGeo(); updGeo(); renderRide(); initPWA(); initPO();
+  $('#optTheme').value=LS.get('theme','auto'); $('#optTheme').onchange=e=>{LS.set('theme',e.target.value);applyTheme()};
   if(location.search.includes('addr=')) setTimeout(()=>openFromLink(),2500); // wait for the first CAD read
   $('#rideOn').onchange=e=>{if(e.target.checked&&!RIDE.units.length){e.target.checked=false;flash('Pick at least one unit first.');return}RIDE.on=e.target.checked;saveRide()};
   $('#rideChip').onclick=openSheet; $('#rideOpenSheet').onclick=openSheet;
