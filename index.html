@@ -7,7 +7,7 @@
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-status-bar-style" content="black">
 <meta name="apple-mobile-web-app-title" content="Run Card">
 <meta name="theme-color" content="#0a1433">
 <title>Run Card</title>
@@ -144,6 +144,10 @@ mark{background:var(--amber);color:#111;padding:0 2px}
 .vfab{position:fixed;right:16px;bottom:calc(env(safe-area-inset-bottom) + 18px);z-index:3;width:64px;height:64px;border-radius:50%;border:none;
   background:var(--red);color:#fff;font-size:28px;font-weight:800;box-shadow:0 6px 20px rgba(0,0,0,.5);cursor:pointer}
 body.noscroll{overflow:hidden}
+/* never let content show through the status-bar area (covers older installs that still use the see-through bar) */
+body::before{content:'';position:fixed;top:0;left:0;right:0;height:env(safe-area-inset-top);background:#0a1433;z-index:6500;pointer-events:none}
+/* tabs stay reachable while scrolling */
+nav{position:sticky;top:env(safe-area-inset-top);z-index:900;background:#0d1a45;box-shadow:0 4px 12px rgba(0,0,0,.25)}
 #viewer canvas,#viewer img{max-width:100%;background:#fff}
 .sec{margin:16px 0 8px;padding-top:10px;border-top:1px solid var(--line);font:700 13px var(--mono);letter-spacing:1px;text-transform:uppercase;color:#bcd0ff}
 .rbox{background:#fffdf3;color:#111;border:3px solid var(--amber);border-radius:14px;padding:14px 18px;margin:6px 0 12px;max-width:860px}
