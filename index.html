@@ -365,6 +365,7 @@ html.light #status .dot{box-shadow:none}
       <label><input type="checkbox" id="optSound" checked> Play tone</label>
       <label><input type="checkbox" id="optWake"> Keep screen on while Run Card is open (rig mount)</label>
       <label><input type="checkbox" id="optStartup"> Alert for calls already on the board when Run Card opens</label>
+      <label><input type="checkbox" id="optScan" checked> Read drawn house numbers off the map image to place the call pin (a few seconds the first time each map sheet opens)</label>
       <label><input type="checkbox" id="optStreetOnly"> Also alert when the street matches but the box station has no book loaded</label>
     </div>
     <div class="small muted" style="margin-top:12px">Notifications need permission — tap <b>Arm alerts</b> on the Board. On iPhone, Run Card must be added to the Home Screen and open on screen to alert by itself; for alerts on a locked phone, use the Pushover watcher.</div>
@@ -879,7 +880,8 @@ async function renderPageEl(f,pageNo,scale=1.4,opts={}){
     const wrap=document.createElement('div');wrap.className='pw';wrap.appendChild(o);return wrap;
   }
   const wrap=document.createElement('div');wrap.className='pw';wrap.appendChild(c);
-  if(opts.pin){const P=opts.pin;const [a,b,cc,d]=conv([P.x,P.y,P.x+P.w,P.y+P.h]);
+  if(opts.pinFrac){const pin=document.createElement('div');pin.className='cpin';pin.innerHTML='<i></i><b>📍</b>';pin.style.left=opts.pinFrac.fx*100+'%';pin.style.top=opts.pinFrac.fy*100+'%';wrap.appendChild(pin)}
+  else if(opts.pin&&opts.pin.x!=null){const P=opts.pin;const [a,b,cc,d]=conv([P.x,P.y,P.x+P.w,P.y+P.h]);
     const pin=document.createElement('div');pin.className='cpin';pin.title='Approximate call location (near label '+P.txt+')';
     pin.style.left=((a+cc)/2)/c.width*100+'%'; pin.style.top=((b+d)/2)/c.height*100+'%';
     pin.innerHTML='<i></i><b>📍</b>'; wrap.appendChild(pin)}
@@ -1663,16 +1665,115 @@ function fitScale(el,f,page,maxPx=1300){ // draw page images at screen size, not
   const w=((f.sizes||[])[page-1]||[612])[0]||612, cw=Math.max(280,(el&&el.clientWidth)||600)*Math.min(2,window.devicePixelRatio||1);
   return Math.max(0.6,Math.min(maxPx,cw)/w);
 }
+/* ===== Map image scan: read drawn house numbers + street labels, match number color to street color ===== */
+let mapOCR=null, mapOCRBusy=Promise.resolve(), mapOCRIdle=null; const OCRMEM=new Map();
+const scanOn=()=>{const e=document.getElementById('optScan');return e?e.checked:true};
+async function getMapOCR(){
+  if(!window.Tesseract) await loadScript(TESSERACT);
+  if(!mapOCR){mapOCR=await Tesseract.createWorker('eng');await mapOCR.setParameters({tessedit_pageseg_mode:'11'})}
+  clearTimeout(mapOCRIdle); mapOCRIdle=setTimeout(()=>{if(mapOCR){mapOCR.terminate();mapOCR=null}},90000); // free memory when idle
+  return mapOCR;
+}
+function hueOf(img,W,H,x0,y0,x1,y1){ // dominant saturated hue (deg) in a box, or null for black/white/grey
+  x0=Math.max(0,x0|0);y0=Math.max(0,y0|0);x1=Math.min(W,Math.ceil(x1));y1=Math.min(H,Math.ceil(y1));
+  const bins=new Array(36).fill(0); let n=0,tot=0;
+  for(let y=y0;y<y1;y++)for(let x=x0;x<x1;x++){const i=(y*W+x)*4,r=img[i]/255,g=img[i+1]/255,b=img[i+2]/255;tot++;
+    const mx=Math.max(r,g,b),mn=Math.min(r,g,b),l=(mx+mn)/2,d=mx-mn; if(d<0.25||l<0.15||l>0.9) continue;
+    if(d/(1-Math.abs(2*l-1))<0.4) continue;
+    let h=mx===r?((g-b)/d)%6:mx===g?(b-r)/d+2:(r-g)/d+4; h=(h*60+360)%360; bins[Math.floor(h/10)%36]++; n++}
+  if(n<Math.max(4,tot*0.06)) return null;
+  const sm=k=>bins[(k+35)%36]+bins[k]+bins[(k+1)%36]; let bi=0; for(let k=1;k<36;k++) if(sm(k)>sm(bi)) bi=k;
+  return bi*10+5;
+}
+const hueNear=(a,b)=>a!=null&&b!=null&&Math.min(Math.abs(a-b),360-Math.abs(a-b))<=28;
+function modeHue(hs,min=1){let best=null,bc=0;hs.forEach(h=>{const c=hs.filter(k=>hueNear(k,h)).length;if(c>bc){bc=c;best=h}});return bc>=min?best:null}
+async function scanSheet(f,page,rot='0'){ // OCR words with position (fractions of the sheet, unrotated) + colour; cached per sheet & rotation
+  const key=f.id+'|'+page+'|'+rot; if(OCRMEM.has(key)) return OCRMEM.get(key);
+  try{const sv=JSON.parse(localStorage.getItem('mapscan:'+key)||'null');if(sv&&sv.v===2){OCRMEM.set(key,sv.w);return sv.w}}catch(e){}
+  const job=mapOCRBusy.then(async()=>{
+    // render a sharper copy just for reading (small building numbers blur at screen size), then free it
+    const pdf=await getPdf(f), pg=await pdf.getPage(page), v1=pg.getViewport({scale:1});
+    const sc=Math.min(3,2200/Math.max(v1.width,v1.height)), vp=pg.getViewport({scale:sc});
+    let cv=document.createElement('canvas'); cv.width=Math.round(vp.width); cv.height=Math.round(vp.height);
+    await pg.render({canvasContext:cv.getContext('2d'),viewport:vp}).promise;
+    if(rot!=='0'){const W0=cv.width,H0=cv.height,r=document.createElement('canvas');r.width=H0;r.height=W0;const x=r.getContext('2d');
+      if(rot==='ccw'){x.translate(0,W0);x.rotate(-Math.PI/2)}else{x.translate(H0,0);x.rotate(Math.PI/2)}
+      x.drawImage(cv,0,0);cv.width=0;cv.height=0;cv=r}
+    const W=cv.width,H=cv.height;
+    const w=await getMapOCR(); const {data}=await w.recognize(cv);
+    const img=cv.getContext('2d').getImageData(0,0,W,H).data; cv.width=0; cv.height=0;
+    const back=(fx,fy,fw,fh)=>rot==='ccw'?[1-(fy+fh),fx,fh,fw]:rot==='cw'?[fy,1-(fx+fw),fh,fw]:[fx,fy,fw,fh];
+    const out=(data.words||[]).filter(x=>x.text&&x.text.trim()).map(x=>{const b=x.bbox,bh=b.y1-b.y0;
+      const [fx,fy,fw,fh]=back(b.x0/W,b.y0/H,(b.x1-b.x0)/W,bh/H);
+      return {t:x.text.trim(),x:+fx.toFixed(4),y:+fy.toFixed(4),w:+fw.toFixed(4),h:+fh.toFixed(4),c:Math.round(x.confidence),
+        hue:hueOf(img,W,H,b.x0-2,b.y0-2,b.x1+2,b.y1+2),road:hueOf(img,W,H,b.x0-bh,b.y0-bh,b.x1+bh,b.y1+bh)}});
+    OCRMEM.set(key,out);
+    try{localStorage.setItem('mapscan:'+key,JSON.stringify({v:2,w:out}));
+      const ks=JSON.parse(localStorage.getItem('mapscanKeys')||'[]').filter(k=>k!==key);ks.push(key);
+      while(ks.length>240)localStorage.removeItem('mapscan:'+ks.shift());localStorage.setItem('mapscanKeys',JSON.stringify(ks))}catch(e){}
+    return out;
+  });
+  mapOCRBusy=job.catch(()=>{}); return job;
+}
+function streetKeys4(street){return stripSuffix(normStreet(street)).split(' ').filter(w=>w.length>=4&&!/^\d/.test(w))}
+function labelsIn(words,keys){return words.filter(w=>{const t=w.t.toUpperCase().replace(/[^A-Z]/g,'');return t.length>=4&&keys.some(k=>t.includes(k)||(t.length>=5&&k.includes(t)))})}
+function scanPin(words,inc){
+  const parts=parseAddress(inc.address).filter(p=>p.street&&p.num!=null); let best=null;
+  parts.forEach(p=>{
+    const keys=streetKeys4(p.street), lab=labelsIn(words,keys);
+    const nums=words.map(w=>{const m=w.t.replace(/[^0-9A-Z]/gi,'').match(/^(\d{2,5})[A-Z]?$/);return m?{...w,v:+m[1],s:m[1]}:null}).filter(Boolean);
+    let sh=modeHue(lab.map(w=>w.hue!=null?w.hue:w.road).filter(h=>h!=null));
+    const T=String(p.num), lim=p.num<1000?60:400;
+    nums.forEach(n=>{
+      let v=n.v,pen=0;
+      if(Math.abs(v-p.num)>lim&&sh!=null&&hueNear(n.hue,sh)&&n.s.length===T.length){const alt=+(T[0]+n.s.slice(1));if(Math.abs(alt-p.num)<=150){v=alt;pen=40}} // misread first digit
+      const dv=Math.abs(v-p.num); if(dv>lim||(n.s.length<3&&dv)) return;
+      let sc=dv+pen+((v%2)!==(p.num%2)?15:0)+(n.c<60?20:0)+(dv===0&&!pen?-60:0); // an exact number beats everything nearby
+      const cm=sh!=null&&hueNear(n.hue,sh);
+      if(sh!=null) sc+=cm?0:(n.hue==null?80:220);
+      if(lab.length) sc+=Math.min(0.5,Math.min(...lab.map(l=>Math.hypot(l.x-n.x,(l.y-n.y)*1.3))))*80;
+      if(!best||sc<best.sc) best={sc,fx:n.x+n.w/2,fy:n.y+n.h/2,txt:String(v),dv,exact:dv===0&&!pen,color:cm,street:p.street};
+    });
+  });
+  return best;
+}
+function setPinFrac(pw,fx,fy){let pin=pw.querySelector('.cpin');
+  if(!pin){pin=document.createElement('div');pin.className='cpin';pin.innerHTML='<i></i><b>📍</b>';pw.appendChild(pin)}
+  pin.style.left=fx*100+'%';pin.style.top=fy*100+'%'}
+function pinCaption(pin){return pin?`📍 ${pin.onDetail?'At detail '+pin.txt:pin.onStreet?'On '+pin.street+' (no house number found)':pin.exact?'At '+pin.txt:pin.color?'Near '+pin.txt+' (same colour as '+pin.street+')':'Rough location, near '+pin.txt}${pin.scan?' · read from map image':''} · `:''}
+async function refineByScan(pw,p,inc,st,cap,tail){
+  const cv=pw.querySelector('canvas'); if(!cv) return;
+  const num=(parseAddress(inc.address).find(x=>x.num!=null)||{}).num; if(num==null) return;
+  cap.textContent='🔎 Reading the map for '+num+'… · '+tail;
+  try{
+    let words=await scanSheet(p.file,p.page,'0'); if(!pw.isConnected||!words){cap.textContent=pinCaption(st.pin)+tail;return}
+    const keys=parseAddress(inc.address).flatMap(x=>x.street?streetKeys4(x.street):[]);
+    for(const rot of ['ccw','cw']){ // street names printed sideways: read the sheet turned until the label turns up
+      if(labelsIn(words,keys).length) break;
+      cap.textContent='🔎 Looking for the street name on the map… · '+tail;
+      const more=await scanSheet(p.file,p.page,rot); if(!pw.isConnected) return; if(more) words=words.concat(more)}
+    const b=scanPin(words,inc), cur=st.pin;
+    const curDv=cur&&!cur.onStreet&&!cur.onDetail?Math.abs(parseInt(cur.txt,10)-num):Infinity;
+    if(b&&(!cur||cur.onStreet||b.exact||b.color||b.dv<curDv)){setPinFrac(pw,b.fx,b.fy);st.pinFrac={fx:b.fx,fy:b.fy};st.pin={...b,scan:true}}
+    cap.textContent=pinCaption(st.pin)+tail;
+  }catch(e){console.warn('map scan',e);cap.textContent=pinCaption(st.pin)+tail}
+}
 async function putPage(el,p,scale,big,opts={}){
   if(opts.inc&&!opts.crop){let pin=findPin(p.file,p.page,opts.inc);
     if(opts.pinToken&&!(pin&&pin.exact)){const t=((p.file.items||[])[p.page-1]||[]).find(i=>String(i[0]).trim().toUpperCase()===opts.pinToken);
       if(t) pin={x:t[1],y:t[2],w:t[3]||20,h:t[4]||10,txt:opts.pinToken,exact:false,onDetail:true}}
-    if(pin)opts={...opts,pin};delete opts.inc;delete opts.pinToken}
+    opts={...opts,pin:pin||null,_inc:opts.inc};delete opts.inc;delete opts.pinToken}
   if(big&&!opts.crop) scale=fitScale(el,p.file,p.page);
   const wrap=document.createElement('div'); if(!big) wrap.style.maxWidth='300px';
-  try{const c=await renderPageEl(p.file,p.page,scale,opts); c.onclick=()=>openPage(p.file.id,p.page,opts.crop?{rects:opts.rects,band:opts.band}:(opts.pin?{pin:opts.pin}:{})); c.style.cursor='zoom-in'; wrap.appendChild(c)}
+  const st={pin:opts.pin||null,pinFrac:null}, inc=opts._inc; delete opts._inc;
+  let pw=null;
+  try{pw=await renderPageEl(p.file,p.page,scale,opts); pw.onclick=()=>openPage(p.file.id,p.page,opts.crop?{rects:opts.rects,band:opts.band}:(st.pinFrac?{pinFrac:st.pinFrac}:(st.pin?{pin:st.pin}:{}))); pw.style.cursor='zoom-in'; wrap.appendChild(pw)}
   catch(e){console.error(e);const b=document.createElement('button');b.className='btn small';b.textContent='Open page';b.onclick=()=>openPage(p.file.id,p.page);wrap.appendChild(b)}
-  if(!opts.crop){const cap=document.createElement('div');cap.className='small muted';cap.textContent=(opts.pin?`📍 ${opts.pin.onDetail?'At detail '+opts.pin.txt:opts.pin.onStreet?'On '+opts.pin.street+' (no house number found)':opts.pin.exact?'At '+opts.pin.txt:'Rough location, near '+opts.pin.txt} · `:'')+`${p.file.name} p${p.page} — tap to enlarge · blue boxes are links`;wrap.appendChild(cap)}
+  if(!opts.crop){const tail=`${p.file.name} p${p.page} — tap to enlarge · blue boxes are links`;
+    const cap=document.createElement('div');cap.className='small muted';cap.textContent=pinCaption(st.pin)+tail;wrap.appendChild(cap);
+    el.appendChild(wrap);
+    if(pw&&inc&&big&&scanOn()&&!(st.pin&&(st.pin.exact||st.pin.onDetail))&&!p.file.mime.startsWith('image/')) refineByScan(pw,p,inc,st,cap,tail);
+    return}
   el.appendChild(wrap);
 }
 // Map page / detail map: follow the index row's own hyperlink first, then fall back to searching the uploaded map PDFs
@@ -1815,7 +1916,7 @@ addEventListener('resize',setNavH); setTimeout(setNavH,0);
 function switchTab(t){document.querySelectorAll('nav button').forEach(b=>b.classList.toggle('active',b.dataset.tab===t));document.querySelectorAll('.tab').forEach(s=>s.classList.toggle('active',s.id==='tab-'+t));if(t==='map'&&map)setTimeout(()=>map.invalidateSize(),50);
   if(t==='alerts'){alertSig='';renderAlerts()} else {alertOpen=null;freeCanvases($('#alertList'));$('#alertList').innerHTML='';alertSig=''}}
 document.querySelectorAll('nav button').forEach(b=>b.onclick=()=>switchTab(b.dataset.tab));
-['optSound','optStartup','optStreetOnly'].forEach(id=>{const el=document.getElementById(id);el.checked=LS.get(id,el.checked);el.onchange=()=>{LS.set(id,el.checked);rematch()}});
+['optSound','optStartup','optStreetOnly','optScan'].forEach(id=>{const el=document.getElementById(id);el.checked=LS.get(id,el.checked);el.onchange=()=>{LS.set(id,el.checked);rematch()}});
 
 /* ================= APPEARANCE ================= */
 const MQ=window.matchMedia?matchMedia('(prefers-color-scheme: light)'):null;
