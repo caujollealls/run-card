@@ -598,6 +598,8 @@ function rowsFromLines(lines, pageNo, state){
       const cols=[['street',g.street],['blk',g.blk],['map',g.map],['smap',g.smap],['complex',g.complex]].filter(c=>c[1]!=null).sort((a,b)=>a[1]-b[1]);
       let col=cols[0][0];
       cols.forEach(c=>{if(it.x+ (it.w||0)*0.5 >= c[1]-6) col=c[0]});
+      // block ranges printed a little left of the BLK header (Station 17): a number range between the street names and the MAP column is BLK
+      if(col==='street'&&g.blk!=null&&it.x>g.street+30&&(g.map==null||it.x+(it.w||0)*0.5<g.map-6)&&/^\d[\d\s\-–&,\/]*(\s*(EVEN|ODD|&\s*(UP|DOWN)|UP|DOWN))?$/i.test(it.str.trim())) col='blk';
       cells[gi][col].push(it.str.trim());
     });
     cells.forEach((c,gi)=>{
@@ -605,6 +607,7 @@ function rowsFromLines(lines, pageNo, state){
       const unMap=s=>s.join(' ').trim().replace(/\b(MAPS?|BMAP|SM)\s*:?\s*(?=[A-Z]?\d)/gi,'').replace(/(\d)\s*-\s*(?=[A-Z0-9])/g,'$1-').trim(); // "MAP 1-08", "MAP: 4-38", "SM 14-103"
       const r={streetShown:c.street.join(' ').trim(),blk:c.blk.join(' ').trim(),map:unMap(c.map),smap:unMap(c.smap),complex:c.complex.join(' ').trim().replace(/\bMAPS?\s*:?\s*(?=[A-Z]?\d)/gi,'').trim(),page:pageNo,
         _y:line.y,_cols:[['street',g.street],['blk',g.blk],['map',g.map],['smap',g.smap],['complex',g.complex]].filter(c=>c[1]!=null).sort((a,b)=>a[1]-b[1]).map((c,i,a)=>[c[0],c[1],a[i+1]?a[i+1][1]:nextStart])};
+      if(!r.blk){const mm=r.streetShown.match(/^(.*?)\s*\b(\d{2,5}\s*[-–]\s*\d{2,5}(?:\s*(?:EVEN|ODD|&\s*(?:UP|DOWN)))?|\d{3,5}\s*(?:AND|&)\s*(?:UP|DOWN|ABOVE|BELOW|HIGHER|LOWER))$/i); if(mm){r.streetShown=mm[1].trim();r.blk=mm[2]}} // "ALLISTON HOLLOW WAY 8800-8900" stored as one piece
       if(!r.streetShown&&!r.blk&&!r.map&&!r.complex&&!r.smap) return;
       if(/^[-–—_\s]+$/.test(r.streetShown+r.blk+r.map+r.complex)) return;
       if(/^page\s*\d+/i.test(r.streetShown)) return;
@@ -654,7 +657,7 @@ function attachRowLinks(rows,links){
     delete r._y; delete r._cols;
   });
 }
-const PARSE_V=4;
+const PARSE_V=5;
 async function parseFile(file, buf){
   const rec={id:Date.now()+'_'+Math.random().toString(36).slice(2,7),name:file.name,mime:file.type||(file.name.toLowerCase().endsWith('.pdf')?'application/pdf':''),data:buf,pages:[],rows:[],station:null,kind:'routes',
     v:PARSE_V,items:[],sizes:[],links:[]};
