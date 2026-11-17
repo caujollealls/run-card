@@ -232,6 +232,12 @@ header{padding-top:max(18px,env(safe-area-inset-top))}
 @keyframes cpin{0%{transform:scale(.4);opacity:1}100%{transform:scale(1.4);opacity:0}}
 </style>
 <style>@media (max-width:900px){#zoomAddr{display:none!important}}</style>
+<style>
+.hydlist{display:flex;flex-direction:column;gap:6px}
+.hyd{display:flex;gap:10px;align-items:flex-start;padding:9px 10px;border:1px solid var(--line);border-radius:10px;background:var(--field);cursor:pointer}
+.hyd .hn{flex:none;width:26px;height:26px;border-radius:50%;background:#e5343f;color:#fff;font:700 14px var(--sans);display:flex;align-items:center;justify-content:center}
+.hyd .hb b{font-size:15px;color:var(--text)} .hyd .hm{font-size:13px;color:var(--mute);margin-top:2px}
+</style>
 <style id="theme">
 /* ===== Appearance: A · Clean Dark (dark mode) / C · Daylight (light mode) ===== */
 /* Option A — Clean Dark: flat graphite, red accent */
@@ -1667,6 +1673,8 @@ function incidentCard(inc,id){
    ${m.boxRow&&m.boxRow.row.smap&&m.boxRow.row.smapLink?`<div class="sec"><b>1b · Street map</b> <span class="pill">${esc(m.boxRow.row.smap)}</span></div><div id="bm2_${id}" class="mapbox"></div>`:''}
    ${(m.details||[]).map((d,k)=>`<div class="sec"><b>2${k?String.fromCharCode(97+k):''} · ${/^BOX/.test(d.id)?'Box map (from detail sheet)':'Site / complex / detail map'}</b> <span class="pill ${/differs/.test(d.label)?'red':'amber'}">${esc(d.label)}</span></div><div id="cm_${id}_${k}" class="mapbox"></div>`).join('')}
    <div id="mapSlot_${id}" class="mapslot"></div>
+   <div class="sec"><b>3b · Closest hydrants</b></div>
+   <div id="hyd_${id}" class="small muted">Finding hydrants…</div>
    <div class="sec"><b>4 · Directions</b></div>
    <div id="dir_${id}"></div>
    <div class="sec"><b>Links</b></div>
@@ -1914,8 +1922,31 @@ async function showLinkedPage(el,item,link,fallback,what,detailId,inc){
   else el.innerHTML=`<div class="muted small">${note}No ${what} page found. Add the map PDFs on Files &amp; Stations.</div>`;
   if(target&&note) el.insertAdjacentHTML('afterbegin',`<div class="small muted">${note}Showing best match instead.</div>`);
 }
+// Closest hydrants to the call (county hydrant layer): address, distance and direction from the call, main size, out-of-service flag
+async function fillHydrants(el,inc){
+  if(!el) return;
+  let ll=inc._ll; if(!ll){try{ll=await geocode(inc.address);inc._ll=ll}catch(e){el.textContent='Could not locate the address to find hydrants.';return}}
+  const q=r=>arcQuery(L_HYDRANTS,{geometry:ll[1]+','+ll[0],geometryType:'esriGeometryPoint',inSR:'4326',distance:r,units:'esriSRUnit_Meter',spatialRel:'esriSpatialRelIntersects',outFields:'HYD_ID,FULL_ADDRE,MAIN,OOC,NOTES',returnGeometry:true,resultRecordCount:200});
+  let d; try{d=await q(300); if((d.features||[]).length<3) d=await q(800)}catch(e){el.textContent='Hydrant lookup failed — check the connection.';return}
+  const R=6371000, rad=x=>x*Math.PI/180;
+  const list=(d.features||[]).map(f=>{const la=f.geometry.y,lo=f.geometry.x;
+      const dy=rad(la-ll[0]),dx=rad(lo-ll[1])*Math.cos(rad(ll[0])), m=R*Math.hypot(dx,dy);
+      const brg=(Math.atan2(dx,dy)*180/Math.PI+360)%360;
+      return {a:f.attributes,la,lo,m,dir:['N','NE','E','SE','S','SW','W','NW'][Math.round(brg/45)%8]}})
+    .sort((x,y)=>x.m-y.m).slice(0,6);
+  if(!list.length){el.textContent='No hydrants found within half a mile.';return}
+  el.className='hydlist';
+  el.innerHTML=list.map((h,i)=>{const a=h.a, ooc=a.OOC&&String(a.OOC).trim(), note=a.NOTES&&String(a.NOTES).trim();
+    return `<div class="hyd" data-i="${i}"><span class="hn">${i+1}</span><div class="hb"><b>${esc(a.FULL_ADDRE||'(no address)')}</b>
+      <div class="hm">${Math.round(h.m*3.281)} ft ${h.dir} of the call${a.MAIN&&String(a.MAIN).trim()?' · '+esc(String(a.MAIN).trim())+'" main':''} · #${esc(a.HYD_ID)}${ooc?' · <span class="pill red">OUT OF SERVICE</span>':''}${note?' · '+esc(note):''}</div></div></div>`}).join('')
+    +'<div class="small muted" style="margin-top:4px">Straight-line distance from the call. Tap one to show it on the map.</div>';
+  el.querySelectorAll('.hyd').forEach(r=>r.onclick=()=>{const h=list[+r.dataset.i]; if(!map) return;
+    const mk=L.circleMarker([h.la,h.lo],{radius:11,color:'#1e6bff',weight:4,fill:false}).addTo(routeLayer);
+    map.setView([h.la,h.lo],19); setTimeout(()=>mk.remove(),8000); document.getElementById('map').scrollIntoView({behavior:'smooth',block:'center'})});
+}
 async function fillCard(id,inc){
   const m=inc.match;
+  fillHydrants(document.getElementById('hyd_'+id),inc).catch(e=>console.warn('hydrants',e));
   fillDirections(document.getElementById('dir_'+id),inc);
   const bm=document.getElementById('bm_'+id);
   if(bm) await showLinkedPage(bm,m.boxRow,m.boxRow&&m.boxRow.row.mapLink,m.boxMap,'map',null,inc);
