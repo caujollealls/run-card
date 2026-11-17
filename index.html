@@ -231,6 +231,7 @@ header{padding-top:max(18px,env(safe-area-inset-top))}
 .cpin i{position:absolute;left:-26px;top:-26px;width:52px;height:52px;border-radius:50%;border:4px solid #e5343f;background:rgba(229,52,63,.18);animation:cpin 1.6s ease-out infinite}
 @keyframes cpin{0%{transform:scale(.4);opacity:1}100%{transform:scale(1.4);opacity:0}}
 </style>
+<style>@media (max-width:900px){#zoomAddr{display:none!important}}</style>
 <style id="theme">
 /* ===== Appearance: A · Clean Dark (dark mode) / C · Daylight (light mode) ===== */
 /* Option A — Clean Dark: flat graphite, red accent */
@@ -1660,14 +1661,14 @@ function incidentCard(inc,id){
   const hit=m.rows.filter(r=>r.hitBlock), rest=m.rows.filter(r=>!r.hitBlock);
   return `<div class="card"><h3><span class="h3a">${esc(inc.address)} ${matchBadge(m)}</span><a class="amaps" href="${appleMaps(inc)}" target="_blank" rel="noopener"> Apple Maps</a></h3>
    <div class="small" style="margin-bottom:8px">${esc(inc.date)} · <b>${esc(inc.description)}</b> · Units: ${esc(inc.units)}</div>
-   <div class="sec"><b>1 · Directions</b></div>
-   <div id="dir_${id}"></div>
    <details class="small" style="margin-top:6px"><summary>Street index rows (${m.rows.length})</summary>${hit.length?idxTable(hit)+(rest.length?idxTable(rest):''):idxTable(m.rows)}</details>
-   ${!(m.boxRow&&m.boxRow.row.map)&&!(R&&R.map)&&!(m.boxMap&&m.boxMap.length)&&(m.details||[]).length?`<div class="sec"><b>2 · Box map</b></div><div class="small muted">The index lists no box map for this block — see the map(s) below.</div>`:`<div class="sec"><b>2 · Box map</b> ${m.boxRow&&m.boxRow.row.map?`<span class="pill">${esc(m.boxRow.row.map)}</span>`:(R&&R.map?`<span class="pill">${esc(R.map)}</span>`:'')}</div>
+   ${!(m.boxRow&&m.boxRow.row.map)&&!(R&&R.map)&&!(m.boxMap&&m.boxMap.length)&&(m.details||[]).length?`<div class="sec"><b>1 · Box map</b></div><div class="small muted">The index lists no box map for this block — see the map(s) below.</div>`:`<div class="sec"><b>1 · Box map</b> ${m.boxRow&&m.boxRow.row.map?`<span class="pill">${esc(m.boxRow.row.map)}</span>`:(R&&R.map?`<span class="pill">${esc(R.map)}</span>`:'')}</div>
    <div id="bm_${id}" class="mapbox"></div>`}
-   ${m.boxRow&&m.boxRow.row.smap&&m.boxRow.row.smapLink?`<div class="sec"><b>2b · Street map</b> <span class="pill">${esc(m.boxRow.row.smap)}</span></div><div id="bm2_${id}" class="mapbox"></div>`:''}
-   ${(m.details||[]).map((d,k)=>`<div class="sec"><b>3${k?String.fromCharCode(97+k):''} · ${/^BOX/.test(d.id)?'Box map (from detail sheet)':'Site / complex / detail map'}</b> <span class="pill ${/differs/.test(d.label)?'red':'amber'}">${esc(d.label)}</span></div><div id="cm_${id}_${k}" class="mapbox"></div>`).join('')}
+   ${m.boxRow&&m.boxRow.row.smap&&m.boxRow.row.smapLink?`<div class="sec"><b>1b · Street map</b> <span class="pill">${esc(m.boxRow.row.smap)}</span></div><div id="bm2_${id}" class="mapbox"></div>`:''}
+   ${(m.details||[]).map((d,k)=>`<div class="sec"><b>2${k?String.fromCharCode(97+k):''} · ${/^BOX/.test(d.id)?'Box map (from detail sheet)':'Site / complex / detail map'}</b> <span class="pill ${/differs/.test(d.label)?'red':'amber'}">${esc(d.label)}</span></div><div id="cm_${id}_${k}" class="mapbox"></div>`).join('')}
    <div id="mapSlot_${id}" class="mapslot"></div>
+   <div class="sec"><b>4 · Directions</b></div>
+   <div id="dir_${id}"></div>
    <div class="sec"><b>Links</b></div>
    <div class="small"><a href="${appleMaps(inc)}" target="_blank" rel="noopener">Apple Maps</a> · <a href="${mapLink(inc)}" target="_blank">ArcGIS (Fire Station Areas)</a> · <a href="https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(inc.address+', Montgomery County, MD')}" target="_blank">Google Maps</a> · Box ${esc(inc.box||'—')} → Station ${m.station??'?'} · Code ${esc(inc.code)}</div>
    ${m.streetOnly.length?`<details class="small" style="margin-top:6px"><summary>Same street in other stations' files (${m.streetOnly.length})</summary>${idxTable(m.streetOnly)}</details>`:''}
@@ -1860,7 +1861,7 @@ async function geoAgree(id,inc){
     if(already!==bm&&sec&&!sec.querySelector('.gpsnote')) sec.insertAdjacentHTML('afterend',`<div class="small gpsnote" style="color:var(--map)">GPS places this call on ${esc(sheetTitle(best.f,best.page-1))} (below), not this sheet.</div>`);
     return}
   const lab=sheetTitle(best.f,best.page-1);
-  sec.insertAdjacentHTML('beforebegin',`<div class="sec"><b>2 · Box map — GPS match</b> <span class="pill amber">${esc(lab)}</span></div><div class="small muted">The index lists ${esc((inc.match.boxRow&&inc.match.boxRow.row.map)||'another page')}, but ${best.fit.cnt} neighbouring addresses line up on this sheet.</div><div id="gbm_${id}" class="mapbox"></div>`);
+  sec.insertAdjacentHTML('beforebegin',`<div class="sec"><b>1 · Box map — GPS match</b> <span class="pill amber">${esc(lab)}</span></div><div class="small muted">The index lists ${esc((inc.match.boxRow&&inc.match.boxRow.row.map)||'another page')}, but ${best.fit.cnt} neighbouring addresses line up on this sheet.</div><div id="gbm_${id}" class="mapbox"></div>`);
   await putPage(document.getElementById('gbm_'+id),{file:best.f,page:best.page},1.6,true,{inc});
 }
 async function putPage(el,p,scale,big,opts={}){
@@ -2015,7 +2016,7 @@ async function showIncident(inc){
 // Phone: the live hydrant/route map sits in the call view under the box and detail maps
 function placeMap(){
   const el=$('#map'), slot=document.getElementById('mapSlot_m'), narrow=innerWidth<=900;
-  if(narrow&&slot&&el.parentNode!==slot){slot.innerHTML='<div class="sec"><b>4 · Hydrant map</b></div><button class="btn zbig" id="zoomAddr2">🔍 Zoom to address &amp; hydrants</button>';slot.appendChild(el);
+  if(narrow&&slot&&el.parentNode!==slot){slot.innerHTML='<div class="sec"><b>3 · Hydrant map</b></div><button class="btn zbig" id="zoomAddr2">🔍 Zoom to address &amp; hydrants</button>';slot.appendChild(el);
     const z=document.getElementById('zoomAddr2'); if(z) z.onclick=()=>{const i=CUR_INC; i&&i._ll&&map.setView(i._ll,18)}}
   else if(!narrow&&el.parentNode!==$('#tab-map')) $('#tab-map').appendChild(el);
   if(map) setTimeout(()=>map.invalidateSize(),60);
