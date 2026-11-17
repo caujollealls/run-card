@@ -1757,7 +1757,7 @@ function scanPin(words,inc){
 function setPinFrac(pw,fx,fy){let pin=pw.querySelector('.cpin');
   if(!pin){pin=document.createElement('div');pin.className='cpin';pin.innerHTML='<i></i><b>📍</b>';pw.appendChild(pin)}
   pin.style.left=fx*100+'%';pin.style.top=fy*100+'%'}
-function pinCaption(pin){return pin?`📍 ${pin.onDetail?'At detail '+pin.txt:pin.onStreet?'On '+pin.street+' (no house number found)':pin.exact?'At '+pin.txt:pin.color?'Near '+pin.txt+' (same colour as '+pin.street+')':'Rough location, near '+pin.txt}${pin.scan?' · read from map image':''} · `:''}
+function pinCaption(pin){return pin?`📍 ${pin.geo?'Placed by GPS from '+pin.cnt+' nearby addresses (closest '+pin.txt+')':pin.onDetail?'At detail '+pin.txt:pin.onStreet?'On '+pin.street+' (no house number found)':pin.exact?'At '+pin.txt:pin.color?'Near '+pin.txt+' (same colour as '+pin.street+')':'Rough location, near '+pin.txt}${pin.scan?' · read from map image':''} · `:''}
 async function refineByScan(pw,p,inc,st,cap,tail){
   const cv=pw.querySelector('canvas'); if(!cv) return;
   const num=(parseAddress(inc.address).find(x=>x.num!=null)||{}).num; if(num==null) return;
@@ -1775,7 +1775,96 @@ async function refineByScan(pw,p,inc,st,cap,tail){
     cap.textContent=(st.pin?pinCaption(st.pin):'No pin — couldn’t find '+num+' or the street name on this sheet · ')+tail;
   }catch(e){console.warn('map scan',e);cap.textContent=pinCaption(st.pin)+tail}
 }
+/* ===== GPS assist: the call's real coordinates + its neighbours' addresses, used to place the pin and check the page ===== */
+const geoNbCache=new Map();
+async function geoNeighbors(inc){
+  let ll=inc._ll; if(!ll){try{ll=await geocode(inc.address);inc._ll=ll}catch(e){return null}}
+  const key=ll.map(v=>v.toFixed(5)).join(','); if(geoNbCache.has(key)) return geoNbCache.get(key);
+  const r=0.0035,[lat,lon]=ll;
+  const pr=jsonp(GIS+'property/property_points/FeatureServer/0/query?'+new URLSearchParams({geometry:[lon-r*1.3,lat-r,lon+r*1.3,lat+r].join(','),geometryType:'esriGeometryEnvelope',inSR:4326,outSR:4326,
+      spatialRel:'esriSpatialRelIntersects',outFields:'PREMISE_ADDR_HOUSENO,PREMISE_ADDR_STREET,PREMISE_ADDR_STREET_TYPE',returnGeometry:true,resultRecordCount:2000,f:'json'}),12000)
+    .then(d=>{const seen=new Set();return (d.features||[]).map(f=>({n:+f.attributes.PREMISE_ADDR_HOUSENO,st:normStreet((f.attributes.PREMISE_ADDR_STREET||'')+' '+(f.attributes.PREMISE_ADDR_STREET_TYPE||'')),lat:f.geometry.y,lon:f.geometry.x}))
+      .filter(x=>x.n>0&&!seen.has(x.n+'|'+x.st)&&seen.add(x.n+'|'+x.st))}).catch(()=>null);
+  geoNbCache.set(key,pr); return pr;
+}
+function pageTokens(f,page){ // numbers printed on a sheet, in page points (y down): PDF text + anything the image scan read
+  const sz=(f.sizes||[])[page-1]||[612,792,0,0], W=sz[0],H=sz[1],x0=sz[2]||0,y0=sz[3]||0, out=[];
+  ((f.items||[])[page-1]||[]).forEach(i=>{const t=String(i[0]).replace(/[​\s]/g,'');if(/^\d{2,5}$/.test(t))out.push({t:+t,x:i[1]-x0+(i[3]||0)/2,y:H-(i[2]-y0+(i[4]||8)/2)})});
+  ['0','ccw','cw'].forEach(r=>(OCRMEM.get(f.id+'|'+page+'|'+r)||[]).forEach(w=>{const t=w.t.replace(/[^0-9]/g,'');if(/^\d{2,5}$/.test(t)&&w.c>=55)out.push({t:+t,x:(w.x+w.w/2)*W,y:(w.y+w.h/2)*H})}));
+  const labs=[];
+  ((f.items||[])[page-1]||[]).forEach(i=>{const t=String(i[0]).toUpperCase().replace(/[^A-Z ]/g,' ').trim();if(t.length>=4)labs.push({t,x:i[1]-x0+(i[3]||0)/2,y:H-(i[2]-y0+(i[4]||8)/2)})});
+  ['0','ccw','cw'].forEach(r=>(OCRMEM.get(f.id+'|'+page+'|'+r)||[]).forEach(w=>{const t=w.t.toUpperCase().replace(/[^A-Z]/g,'');if(t.length>=4)labs.push({t,x:(w.x+w.w/2)*W,y:(w.y+w.h/2)*H})}));
+  return {toks:out,labs,W,H};
+}
+function geoFit(toks,nbs,ll,W,H,labs=[]){
+  const k=Math.cos(ll[0]*Math.PI/180), M=(la,lo)=>[(lo-ll[1])*111320*k,(la-ll[0])*110574];
+  const byNum=new Map(); nbs.forEach(n=>{const a=byNum.get(n.n)||[];a.push(n);byNum.set(n.n,a)});
+  const nearSt=(t,st)=>{const ks=streetKeys4(st);return labs.some(l=>ks.some(k=>l.t.includes(k))&&Math.hypot(l.x-t.x,l.y-t.y)<150)};
+  const anc=[]; toks.forEach(t=>(byNum.get(t.t)||[]).forEach(n=>{const [X,Y]=M(n.lat,n.lon);anc.push({x:t.x,y:t.y,X,Y,n:n.n,st:n.st,key:n.n+'|'+n.st,strong:n.n>=1000||nearSt(t,n.st)})}));
+  if(anc.length<2) return null;
+  let seed=12345; const rnd=()=>(seed=(seed*1103515245+12345)%2147483648)/2147483648;
+  const model=(a,b)=>{const dX=b.X-a.X,dY=b.Y-a.Y,dx=b.x-a.x,dy=b.y-a.y,L=Math.hypot(dX,dY),l=Math.hypot(dx,dy);
+    if(L<25||l<8) return null; const s=l/L; if(s<0.05||s>4) return null;
+    let th=Math.atan2(-dy,dx)-Math.atan2(dY,dX); th=Math.atan2(Math.sin(th),Math.cos(th)); if(Math.abs(th)>0.6) return null;
+    return {s,c:Math.cos(th),sn:Math.sin(th)}};
+  const proj=(m,a,X,Y)=>{const u=m.s*(m.c*(X-a.X)-m.sn*(Y-a.Y)), v=m.s*(m.sn*(X-a.X)+m.c*(Y-a.Y));return [a.x+u,a.y-v]};
+  let best=null; const N=Math.min(2000,anc.length*anc.length*2);
+  for(let it=0;it<N;it++){const a=anc[Math.floor(rnd()*anc.length)],b=anc[Math.floor(rnd()*anc.length)]; if(a===b||a.key===b.key) continue;
+    const m=model(a,b); if(!m) continue;
+    const inl=anc.filter(q=>{const [px,py]=proj(m,a,q.X,q.Y);return Math.hypot(px-q.x,py-q.y)<50});
+    const cnt=new Set(inl.map(q=>q.key)).size;
+    if(!best||cnt>best.cnt) best={cnt,m,a,inl}}
+  if(!best||best.cnt<3) return null;
+  if(new Set(best.inl.filter(q=>q.strong).map(q=>q.key)).size<2) return null; // short numbers alone can line up by chance on another street
+  // place the call from its nearest agreeing anchors (the maps are hand drawn: local beats global)
+  const acc=[...new Map(best.inl.map(q=>[q.key,q])).values()].map(q=>({...q,d:Math.hypot(q.X,q.Y)})).sort((a,b)=>a.d-b.d).slice(0,4);
+  let sx=0,sy=0,sw=0; const {m}=best;
+  acc.forEach(q=>{const w=1/Math.pow(q.d+15,2); const [px,py]=proj(m,q,0,0); sx+=px*w; sy+=py*w; sw+=w});
+  const x=sx/sw,y=sy/sw; if(x<-10||y<-10||x>W+10||y>H+10) return null; // the call isn't on this sheet
+  return {cnt:best.cnt,x,y,fx:Math.min(1,Math.max(0,x/W)),fy:Math.min(1,Math.max(0,y/H)),near:acc.map(q=>q.n),dist:Math.round(acc[0].d)};
+}
+function geoFitPage(f,page,nbs,ll){const {toks,labs,W,H}=pageTokens(f,page);return geoFit(toks,nbs,ll,W,H,labs)}
+function sheetTitle(f,pi){ // the big printed sheet number ("29", "16-3")
+  const its=((f.items||[])[pi]||[]).filter(i=>(i[4]||0)>=16&&/^[A-Z]{0,2}\d{1,3}(\s*-\s*\d{1,3})?[A-Z]?$/.test(String(i[0]).trim()));
+  its.sort((a,b)=>(b[4]||0)-(a[4]||0)); return its.length?String(its[0][0]).replace(/\s/g,''):(sheetId(f,pi)||'page '+(pi+1));
+}
+async function refineByGeo(pw,p,inc,st,cap,tail){
+  if(st.pin&&(st.pin.exact||st.pin.onDetail)) return;
+  const nbs=await geoNeighbors(inc); if(!nbs||!nbs.length||!pw.isConnected) return;
+  const fit=geoFitPage(p.file,p.page,nbs,inc._ll); if(!fit) return;
+  setPinFrac(pw,fit.fx,fit.fy); st.pinFrac={fx:fit.fx,fy:fit.fy}; st.pin={geo:true,txt:fit.near.join(', '),cnt:fit.cnt,dist:fit.dist};
+  cap.textContent=pinCaption(st.pin)+tail;
+}
+async function refinePin(pw,p,inc,st,cap,tail){
+  if(scanOn()&&!p.file.mime.startsWith('image/')) await refineByScan(pw,p,inc,st,cap,tail);
+  if(pw.isConnected) await refineByGeo(pw,p,inc,st,cap,tail).catch(e=>console.warn('geo pin',e));
+}
+// Which sheet does the GPS say? Score the station's map sheets by how many neighbouring addresses line up on them.
+async function geoAgree(id,inc){
+  const nbs=await geoNeighbors(inc); if(!nbs||!nbs.length) return;
+  const bm=document.getElementById('bm_'+id); if(!bm) return;
+  const nums=new Set(nbs.map(n=>n.n)); let best=null; const shownF=bm.dataset.fid, shownP=+bm.dataset.pg; let shown=null;
+  FILES.filter(f=>f.station===inc.station&&f.items).forEach(f=>{const rps=routePageSet(f);
+    f.items.forEach((its,pi)=>{ if(f.rows.some(r=>r.page===pi+1)||rps.has(pi)) return;
+      const {toks}=pageTokens(f,pi+1); if(toks.filter(t=>nums.has(t.t)).length<3) return;
+      const fit=geoFitPage(f,pi+1,nbs,inc._ll); if(!fit) return;
+      const cand={f,page:pi+1,fit}; if(f.id===shownF&&pi+1===shownP) shown=cand;
+      if(!best||fit.cnt>best.fit.cnt||(fit.cnt===best.fit.cnt&&fit.dist<best.fit.dist)) best=cand})});
+  const sec=bm.previousElementSibling;
+  if(!best) return;
+  if(shown&&best===shown||(shown&&shown.fit.cnt>=best.fit.cnt-1)){ if(sec&&!sec.querySelector('.gpsok')) sec.insertAdjacentHTML('beforeend',' <span class="pill gpsok">✓ GPS agrees</span>'); return }
+  if(best.fit.cnt<4) return; // not confident enough to second-guess the index
+  if(document.getElementById('gbm_'+id)) return;
+  const card=bm.closest('.card'), already=card&&[...card.querySelectorAll('.mapbox')].find(e=>e.dataset.fid===best.f.id&&+e.dataset.pg===best.page);
+  if(already){const s2=already.previousElementSibling; if(s2&&!s2.querySelector('.gpsok')) s2.insertAdjacentHTML('beforeend',' <span class="pill gpsok">✓ GPS match</span>');
+    if(already!==bm&&sec&&!sec.querySelector('.gpsnote')) sec.insertAdjacentHTML('afterend',`<div class="small gpsnote" style="color:var(--map)">GPS places this call on ${esc(sheetTitle(best.f,best.page-1))} (below), not this sheet.</div>`);
+    return}
+  const lab=sheetTitle(best.f,best.page-1);
+  sec.insertAdjacentHTML('beforebegin',`<div class="sec"><b>2 · Box map — GPS match</b> <span class="pill amber">${esc(lab)}</span></div><div class="small muted">The index lists ${esc((inc.match.boxRow&&inc.match.boxRow.row.map)||'another page')}, but ${best.fit.cnt} neighbouring addresses line up on this sheet.</div><div id="gbm_${id}" class="mapbox"></div>`);
+  await putPage(document.getElementById('gbm_'+id),{file:best.f,page:best.page},1.6,true,{inc});
+}
 async function putPage(el,p,scale,big,opts={}){
+  if(el&&el.dataset&&p&&p.file){el.dataset.fid=p.file.id;el.dataset.pg=p.page}
   if(opts.inc&&!opts.crop){let pin=findPin(p.file,p.page,opts.inc);
     if(opts.pinToken&&!(pin&&pin.exact)){const t=((p.file.items||[])[p.page-1]||[]).find(i=>String(i[0]).trim().toUpperCase()===opts.pinToken);
       if(t) pin={x:t[1],y:t[2],w:t[3]||20,h:t[4]||10,txt:opts.pinToken,exact:false,onDetail:true}}
@@ -1789,7 +1878,7 @@ async function putPage(el,p,scale,big,opts={}){
   if(!opts.crop){const tail=`${p.file.name} p${p.page} — tap to enlarge · blue boxes are links`;
     const cap=document.createElement('div');cap.className='small muted';cap.textContent=pinCaption(st.pin)+tail;wrap.appendChild(cap);
     el.appendChild(wrap);
-    if(pw&&inc&&big&&scanOn()&&!(st.pin&&(st.pin.exact||st.pin.onDetail))&&!p.file.mime.startsWith('image/')) refineByScan(pw,p,inc,st,cap,tail);
+    if(pw&&inc&&big&&!(st.pin&&(st.pin.exact||st.pin.onDetail))) refinePin(pw,p,inc,st,cap,tail);
     return}
   el.appendChild(wrap);
 }
@@ -1831,6 +1920,7 @@ async function fillCard(id,inc){
   if(bm) await showLinkedPage(bm,m.boxRow,m.boxRow&&m.boxRow.row.mapLink,m.boxMap,'map',null,inc);
   const bm2=document.getElementById('bm2_'+id);
   if(bm2) await showLinkedPage(bm2,m.boxRow,m.boxRow.row.smapLink,[],'box map',null,inc);
+  geoAgree(id,inc).catch(e=>console.warn('gps page check',e));
   for(const [k,d] of (m.details||[]).entries()){const el=document.getElementById('cm_'+id+'_'+k);
     if(!el) continue;
     if(d.direct){el.innerHTML='';await putPage(el,d.direct,1.6,true,{inc,pinToken:d.pinToken})}
@@ -1875,6 +1965,10 @@ const geoCache=new Map();
 async function geocode(addr){
   const q=addr.replace(/\s*\/\s*/,' & ');
   if(geoCache.has(q)) return geoCache.get(q);
+  if(!q.includes('&')){ // MCFRS's own geocoder first: exact address points
+    try{const d=await jsonp(GIS+'geocode/MCFRS_LatLong/GeocodeServer/findAddressCandidates?'+new URLSearchParams({SingleLine:q,maxLocations:1,f:'json'}),8000);
+      const c=(d.candidates||[])[0]; if(c&&c.score>=90){const ll=[c.location.y,c.location.x];geoCache.set(q,ll);return ll}}catch(e){}
+  }
   const u='https://geocode.arcgis.com/arcgis/rest/services/World/GeocodeServer/findAddressCandidates?'+new URLSearchParams({SingleLine:q+', Montgomery County, MD',searchExtent:MOCO_EXTENT,maxLocations:1,outFields:'Score',f:'json'});
   const d=await (await fetch(u)).json(); const c=(d.candidates||[])[0];
   if(!c) throw new Error('Address not found');
